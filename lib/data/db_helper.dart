@@ -32,6 +32,21 @@ class DBHelper {
             password TEXT
           )
         ''');
+
+        await db.execute('''
+          CREATE TABLE doctor_profiles (
+            id INTEGER PRIMARY KEY,
+            user_id INTEGER, -- Foreign Key linked to users.id
+            demography TEXT,
+            address TEXT,
+            contact TEXT,
+            specialization TEXT,
+            practing_tenure TEXT,
+            birthday TEXT,
+            avatar_url TEXT,
+            FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+          )
+        ''');
       },
     );
   }
@@ -70,5 +85,84 @@ class DBHelper {
     final db = await database;
     final result = await db.query('users', where: 'email = ?', whereArgs: [email]);
     return result.isNotEmpty ? result.first : null;
+  }
+
+  Future<Map<String, dynamic>?> getDoctorInfoByUserId(int userId) async {
+    final db = await database; // Assume `database` initializes your SQLite instance
+    final result = await db.query(
+      'doctor_profiles', // Replace with your actual table name
+      where: 'user_id = ?',
+      whereArgs: [userId],
+    );
+    return result.isNotEmpty ? result.first : null; // Return the first record if found
+  }
+
+  Future<void> updateUser({
+    required int id,
+    String? fullName,
+    String? phoneNumber,
+  }) async {
+    final db = await database;
+
+    // Only update fields if they are not null
+    Map<String, dynamic> updatedUserData = {};
+    if (fullName != null) updatedUserData['fullName'] = fullName;
+    if (updatedUserData.isNotEmpty) {
+      await db.update(
+        'users',
+        updatedUserData,
+        where: 'id = ?',
+        whereArgs: [id],
+      );
+    }
+  }
+
+  Future<void> updateDoctor_info({
+    required int userId,
+    String? address,
+    String? contact,
+    String? demography,
+    String? specialization,
+    String? practing_tenure,
+    DateTime? birthday,
+  }) async {
+    final db = await database;
+
+    // Prepare the updated user info
+    Map<String, dynamic> updatedUserInfoData = {};
+    if (address != null) updatedUserInfoData['address'] = address;
+    if (contact != null) updatedUserInfoData['contact'] = contact;
+    if (demography != null) updatedUserInfoData['demography'] = demography;
+    if (specialization != null) updatedUserInfoData['specialization'] = specialization;
+    if (practing_tenure != null) updatedUserInfoData['practing_tenure'] = practing_tenure;
+    if (birthday != null) updatedUserInfoData['birthday'] = birthday.toIso8601String();
+
+    if (updatedUserInfoData.isNotEmpty) {
+      // Check if a UserInfo entry already exists for the user
+      final existingRecord = await db.query(
+        'doctor_profiles',
+        where: 'user_id = ?',
+        whereArgs: [userId],
+      );
+
+      if (existingRecord.isNotEmpty) {
+        // Update existing record
+        await db.update(
+          'doctor_profiles',
+          updatedUserInfoData,
+          where: 'user_id = ?',
+          whereArgs: [userId],
+        );
+      } else {
+        // Insert new record if it doesn't exist
+        await db.insert(
+          'doctor_profiles',
+          {
+            'user_id': userId,
+            ...updatedUserInfoData,
+          },
+        );
+      }
+    }
   }
 }

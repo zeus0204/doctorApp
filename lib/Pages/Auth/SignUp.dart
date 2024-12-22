@@ -1,4 +1,3 @@
-import 'package:doctor_app/Pages/Home/Home.dart';
 import 'package:doctor_app/data/db_helper.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -49,7 +48,7 @@ class _SignupState extends State<Signup> {
         // Navigate to the next screen (e.g., home screen or login)
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => const Home()), // Replace with your home page
+          MaterialPageRoute(builder: (context) => const Signin()), // Replace with your home page
         );
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Email already exists. Please use a different email.')));

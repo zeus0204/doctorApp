@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';  
 import 'package:shared_preferences/shared_preferences.dart';
 import '../Auth/SignIn.dart';
+import '../Home/Profile/EditProfile.dart';
+
 class SettingsPage extends StatelessWidget {  
   // Profile data  
   final Map<String, String> profile = {  
@@ -39,7 +41,7 @@ class SettingsPage extends StatelessWidget {
                 style: GoogleFonts.poppins(  
                   fontSize: 24,  
                   fontWeight: FontWeight.bold,  
-                  color: Color.fromRGBO(33, 158, 80, 1),  
+                  color: const Color.fromRGBO(33, 158, 80, 1),  
                 ),  
               ),  
             ),  
@@ -48,11 +50,11 @@ class SettingsPage extends StatelessWidget {
             // User Info Section with Divider  
             Row(  
               children: [  
-                CircleAvatar(  
+                const CircleAvatar(  
                   radius: 30,  
                   backgroundImage: AssetImage('assets/profile_image.png'), // Replace with your image asset  
                 ),  
-                SizedBox(width: 16),  
+                const SizedBox(width: 16),  
                 Column(  
                   crossAxisAlignment: CrossAxisAlignment.start,  
                   children: [  
@@ -75,9 +77,9 @@ class SettingsPage extends StatelessWidget {
                 ),  
               ],  
             ),  
-            SizedBox(height: 10),  
+            const SizedBox(height: 10),  
             Divider(color: Colors.grey[300]), // Divider after user info  
-            SizedBox(height: 10),  
+            const SizedBox(height: 10),  
 
             // Settings Options  
             Expanded(  
@@ -88,7 +90,10 @@ class SettingsPage extends StatelessWidget {
                     icon: Icons.edit,  
                     text: 'Edit Profile',  
                     onTap: () {  
-                      // Handle Edit Profile action  
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const EditProfile()), // Navigate to Profile page
+                      );  
                     },  
                   ),  
                   SettingsOption(  
@@ -119,7 +124,7 @@ class SettingsPage extends StatelessWidget {
                       decoration: BoxDecoration(  
                         color: Colors.white, // Background color of the button  
                         borderRadius: BorderRadius.circular(8), // Making borders rounded  
-                        boxShadow: [  
+                        boxShadow: const [  
                           BoxShadow(  
                             color: Colors.black26, // Color of the shadow  
                             blurRadius: 8, // Softness of the shadow  
@@ -132,10 +137,10 @@ class SettingsPage extends StatelessWidget {
                         onPressed: () => _logout(context),  
                         style: ElevatedButton.styleFrom(  
                           backgroundColor: Colors.white, // Button background color  
-                          padding: EdgeInsets.symmetric(horizontal: 20, vertical: 16), // Button padding  
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16), // Button padding  
                           shape: RoundedRectangleBorder(  
                             borderRadius: BorderRadius.circular(8), // Matching the container's border radius  
-                            side: BorderSide(color: Colors.white), // Border color  
+                            side: const BorderSide(color: Colors.white), // Border color  
                           ),  
                         ),  
                         child: Text('Logout', style: GoogleFonts.poppins(fontSize: 18, color: Colors.red)), // Set text color to red  
@@ -145,7 +150,7 @@ class SettingsPage extends StatelessWidget {
                 ],  
               ),  
             ),  
-            SizedBox(height: 20), // Spacer between Logout button and footer  
+            const SizedBox(height: 20), // Spacer between Logout button and footer  
 
             // Footer  
             Center(  
@@ -167,11 +172,11 @@ class SettingsOption extends StatelessWidget {
   final VoidCallback onTap;  
 
   const SettingsOption({  
-    Key? key,  
+    super.key,  
     required this.icon,  
     required this.text,  
     required this.onTap,  
-  }) : super(key: key);  
+  });  
 
   @override  
   Widget build(BuildContext context) {  
@@ -184,22 +189,22 @@ class SettingsOption extends StatelessWidget {
             // Container for icon with specified background color  
             Container(  
               decoration: BoxDecoration(  
-                color: Color.fromRGBO(226, 248, 227, 1), // Background color for the icon  
+                color: const Color.fromRGBO(226, 248, 227, 1), // Background color for the icon  
                 borderRadius: BorderRadius.circular(8), // Rounded corners for the background  
               ),  
               padding: const EdgeInsets.all(8.0), // Add padding around the icon  
-              child: Icon(icon, color: Color.fromRGBO(33, 158, 80, 1)),  
+              child: Icon(icon, color: const Color.fromRGBO(33, 158, 80, 1)),  
             ),  
-            SizedBox(width: 16),  
+            const SizedBox(width: 16),  
             Expanded(  
               child: Text(  
                 text,  
-                style: GoogleFonts.poppins(fontSize: 18, color: Color.fromRGBO(10, 62, 29, 1)), // Setting text color  
+                style: GoogleFonts.poppins(fontSize: 18, color: const Color.fromRGBO(10, 62, 29, 1)), // Setting text color  
               ),  
             ),  
             Transform.rotate(  // Correcting the arrow icon orientation  
               angle: 0, // Rotate by 90 degrees (1.5 radians)  
-              child: Icon(Icons.arrow_forward_ios, color: Colors.grey),  
+              child: const Icon(Icons.arrow_forward_ios, color: Colors.grey),  
             ),  
           ],  
         ),  
