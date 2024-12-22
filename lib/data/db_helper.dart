@@ -47,6 +47,20 @@ class DBHelper {
             FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
           )
         ''');
+
+        await db.execute('''
+          CREATE TABLE appointments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            doctor_id INTEGER,
+            hospital_id INTEGER,
+            day TEXT,
+            time TEXT,
+            FOREIGN KEY (user_id) REFERENCES users (id),
+            FOREIGN KEY (doctor_id) REFERENCES doctors (id),
+            FOREIGN KEY (hospital_id) REFERENCES hospitals (id)
+          )
+        ''');
       },
     );
   }
@@ -79,6 +93,21 @@ class DBHelper {
       whereArgs: [email],
     );
     return result.isNotEmpty;
+  }
+
+  Future<int?> getUserIdByEmail(String email) async {
+    final db = await database;
+    final result = await db.query(
+      'users',
+      columns: ['id'], // Only fetch the 'id' column
+      where: 'email = ?',
+      whereArgs: [email],
+    );
+
+    if (result.isNotEmpty) {
+      return result.first['id'] as int; // Return the userId
+    }
+    return null; // Return null if the email doesn't exist
   }
 
   Future<Map<String, dynamic>?> getUserByEmail(String email) async {
@@ -164,5 +193,47 @@ class DBHelper {
         );
       }
     }
+  }
+
+  Future<List<Map<String, dynamic>>> getAppointmentsByDoctorId(int doctorId) async {
+    final db = await database;
+    return await db.query(
+      'appointments',
+      where: 'doctor_id = ?',
+      whereArgs: [doctorId],
+    );
+  }
+
+  Future<void> deleteAppointment(int appointmentId) async {
+    final db = await database;
+    await db.delete(
+      'appointments',
+      where: 'id = ?',
+      whereArgs: [appointmentId],
+    );
+  }
+
+  Future<List<Map<String, dynamic>>> getAppointmentsById(int id) async {
+    final db = await database;
+    return await db.query(
+      'appointments',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  Future<void> insertAppointment(Map<String, dynamic> appointmentData) async {
+    final db = await database;
+    await db.insert('appointments', appointmentData);
+  }
+
+  Future<void> updateAppointment(int id, Map<String, dynamic> updatedData) async {
+    final db = await database;
+    await db.update(
+      'appointments',
+      updatedData,
+      where: 'id = ?',
+      whereArgs: [id],
+    );
   }
 }

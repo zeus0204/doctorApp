@@ -1,6 +1,6 @@
 import 'ScanQR.dart';
 import 'package:flutter/material.dart';
-import 'Calendar.dart';
+import '../Home/Appointment/Calendar.dart';
 import 'Dashboard.dart';
 import 'Settings.dart';
 
@@ -15,7 +15,7 @@ class _HomeState extends State<Home> {
   int _currentIndex = 0;
   final List<Widget> _screens = [
     const Dashboard(),
-    Calendar(),
+    const Calendar(),
     ScanQR(),
     SettingsPage()
   ];
@@ -58,13 +58,13 @@ class _HomeState extends State<Home> {
   Widget _buildIcon(IconData icon, bool isSelected) {
     return Container(
       decoration: BoxDecoration(
-        color: isSelected ? Color.fromRGBO(33, 158, 80, 1) : Colors.transparent,
+        color: isSelected ? const Color.fromRGBO(33, 158, 80, 1) : Colors.transparent,
         borderRadius: BorderRadius.circular(8), // Rounded corners
       ),
-      padding: EdgeInsets.all(10), // Adjust padding for better appearance
+      padding: const EdgeInsets.all(10), // Adjust padding for better appearance
       child: Icon(
         icon,
-        color: isSelected ? Colors.white : Color.fromRGBO(33, 158, 80, 1),
+        color: isSelected ? Colors.white : const Color.fromRGBO(33, 158, 80, 1),
       ),
     );
   }
