@@ -54,7 +54,7 @@ class _EditProfileState extends State<EditProfile> {
         if (userData != null) {
           int userId = userData['id'];
           Map<String, dynamic>? doctorInfo =
-              await DBHelper().getDoctorInfoByUserId(userId);
+              await DBHelper().getDoctorInfoByUserId(userId as String);
 
           setState(() {
             _fullName = userData['fullName'];
@@ -91,20 +91,19 @@ class _EditProfileState extends State<EditProfile> {
         if (email != null) {
           Map<String, dynamic>? userData = await DBHelper().getUserByEmail(email);
           if (userData != null) {
-            int userId = userData['id'];
 
-            await DBHelper().updateUser(
-              id: userId,
+            await DBHelper().updateDoctors(
+              email: email,
               fullName: _fullName,
             );
 
-            await DBHelper().updateDoctor_info(
-              userId: userId,
+            await DBHelper().updateDoctorInfo(
+              email: email,
               address: _address,
               contact: _contact,
               demography: _demography,
               specialization: _specialization,
-              practing_tenure: _practingTenure,
+              practingTenure: _practingTenure,
               birthday: _dateOfBirth != null
                   ? DateTime.parse(_dateOfBirth!)
                   : null,

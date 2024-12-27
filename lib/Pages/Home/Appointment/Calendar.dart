@@ -131,7 +131,7 @@ class _CalendarState extends State<Calendar> {
   Future<void> _deleteAppointment(int appointmentId) async {
     final dbHelper = DBHelper();
     try {
-      await dbHelper.deleteAppointment(appointmentId); // Delete from DB
+      await dbHelper.deleteAppointment(appointmentId as String); // Delete from DB
       _fetchAppointments(); // Refresh the list of appointments
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Appointment deleted successfully')),

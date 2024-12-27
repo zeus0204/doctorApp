@@ -1,9 +1,23 @@
 import 'package:flutter/material.dart';
 
-class Scanner extends StatelessWidget {
+class PatientsDetails extends StatefulWidget {
   final String scannedData;
 
-  const Scanner({Key? key, required this.scannedData}) : super(key: key);
+  const PatientsDetails({Key? key, required this.scannedData}) : super(key: key);
+
+  @override
+  _PatientsDetailsState createState() => _PatientsDetailsState();
+}
+
+class _PatientsDetailsState extends State<PatientsDetails> {
+  late String scannedData;
+
+  @override
+  void initState() {
+    super.initState();
+    // Initialize scannedData from the widget's property
+    scannedData = widget.scannedData;
+  }
 
   @override
   Widget build(BuildContext context) {

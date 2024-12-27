@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'package:doctor_app/data/db_helper.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -7,6 +6,7 @@ import '../Home/Home.dart';
 import 'SignUp.dart';
 import 'package:crypto/crypto.dart';
 import '../../data/session.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class Signin extends StatefulWidget {  
   const Signin({super.key});  
@@ -21,29 +21,36 @@ class _SigninState extends State<Signin> {
   String? _email;
   String? _password;
 
-  final DBHelper _dbHelper = DBHelper();
-
   String hashPassword(String password) {
     return sha256.convert(utf8.encode(password)).toString();
   }
 
   Future<void> _login() async {
-    if (_signInformkey.currentState!.validate()) {
-      _signInformkey.currentState!.save();
+    try {
+        await FirebaseAuth.instance.signInWithEmailAndPassword(
+          email: _email!,
+          password: _password!,
+        );
 
-      final user = await _dbHelper.getUserByEmail(_email!);
-      if (user != null && user['password'] == hashPassword(_password!)) {
-        // Successful login, save the session
         await SessionManager.saveUserSession(_email!);
+        
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Login Successfully')));
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => const Home()), // Replace with your home page
         );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Invalid credentials')));
+
+      } on FirebaseAuthException catch (e) {
+        String errorMessage;
+        if (e.code == 'user-not-found') {
+          errorMessage = 'No user found for that email.';
+        } else if (e.code == 'wrong-password') {
+          errorMessage = 'Wrong password provided.';
+        } else {
+          errorMessage = 'An error occurred. Please try again.';
+        }
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(errorMessage)));
       }
-    }
   }
 
   @override  

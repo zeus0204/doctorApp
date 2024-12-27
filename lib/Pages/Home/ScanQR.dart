@@ -1,5 +1,5 @@
 import 'package:barcode_scan2/barcode_scan2.dart';
-import '../Home/QR_code/ScanQR.dart'; // Adjust the path as needed
+import 'Records/Patients_details.dart'; // Adjust the path as needed
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -41,7 +41,7 @@ class ScanQR extends StatelessWidget {
                       context,
                       MaterialPageRoute(
                         builder: (context) =>
-                            Scanner(scannedData: codeScanner.rawContent),
+                            PatientsDetails(scannedData: codeScanner.rawContent),
                       ),
                     );
                   }
