@@ -27,6 +27,8 @@ class _SigninState extends State<Signin> {
 
   Future<void> _login() async {
     try {
+        print(_email!);  
+        print(_password!);
         await FirebaseAuth.instance.signInWithEmailAndPassword(
           email: _email!,
           password: _password!,
@@ -107,7 +109,7 @@ class _SigninState extends State<Signin> {
                       }
                       return null;
                     },
-                    onSaved: (value) {
+                    onChanged: (value) {
                       _email = value;
                     },
                     
@@ -140,7 +142,7 @@ class _SigninState extends State<Signin> {
                       }
                       return null;
                     },
-                    onSaved: (value) {
+                    onChanged: (value) {
                       _password = value;
                     },
                   ), 

@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:image_picker/image_picker.dart';
 import '../../../data/session.dart';
 import '../../../data/db_helper.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class EditProfile extends StatefulWidget {
   const EditProfile({super.key});
@@ -30,6 +31,8 @@ class _EditProfileState extends State<EditProfile> {
   final _practingTenureController = TextEditingController();
   final _dateOfBirthController = TextEditingController();
 
+  List<Map<String, dynamic>> _hospitals = [];
+
   @override
   void initState() {
     super.initState();
@@ -50,11 +53,10 @@ class _EditProfileState extends State<EditProfile> {
     try {
       String? email = await SessionManager.getUserSession();
       if (email != null) {
-        Map<String, dynamic>? userData = await DBHelper().getUserByEmail(email);
+        Map<String, dynamic>? userData = await DBHelper().getDoctorByEmail(email);
         if (userData != null) {
-          int userId = userData['id'];
           Map<String, dynamic>? doctorInfo =
-              await DBHelper().getDoctorInfoByUserId(userId as String);
+              await DBHelper().getDoctorInfoByEmail(email);
 
           setState(() {
             _fullName = userData['fullName'];
@@ -62,7 +64,7 @@ class _EditProfileState extends State<EditProfile> {
             _contact = doctorInfo?['contact'];
             _demography = doctorInfo?['demography'];
             _specialization = doctorInfo?['specialization'];
-            _practingTenure = doctorInfo?['practing_tenure'];
+            _practingTenure = doctorInfo?['practingTenure'];
             _dateOfBirth = doctorInfo?['birthday'];
 
             _fullNameController.text = _fullName ?? '';
@@ -73,6 +75,7 @@ class _EditProfileState extends State<EditProfile> {
             _practingTenureController.text = _practingTenure?? '';
             _dateOfBirthController.text = _dateOfBirth ?? '';
           });
+          _loadAvaiableHospital(email);
         }
       }
     } catch (e) {
@@ -82,6 +85,18 @@ class _EditProfileState extends State<EditProfile> {
     }
   }
 
+  Future<void> _loadAvaiableHospital(email) async {
+    try {
+      final records = await DBHelper().getHospitalsByEmail(email);
+      setState(() {
+        _hospitals = records;
+      });
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Your profile lacks hospital. Please add it.')),
+      );
+    }
+  }
 
   Future<void> _saveProfile() async {
     if (_formKey.currentState!.validate()) {
@@ -89,7 +104,7 @@ class _EditProfileState extends State<EditProfile> {
       try {
         String? email = await SessionManager.getUserSession();
         if (email != null) {
-          Map<String, dynamic>? userData = await DBHelper().getUserByEmail(email);
+          Map<String, dynamic>? userData = await DBHelper().getDoctorByEmail(email);
           if (userData != null) {
 
             await DBHelper().updateDoctors(
@@ -121,6 +136,174 @@ class _EditProfileState extends State<EditProfile> {
         );
       }
     }
+  }
+
+  Widget _buildHospitalList() {
+    if (_hospitals.isEmpty) {
+      return const Center(child: Text('No hospital available'));
+    }
+
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: _hospitals.length,
+      itemBuilder: (context, index) {
+        final record = _hospitals[index];
+        return Card(
+          margin: const EdgeInsets.symmetric(vertical: 8),
+          elevation: 2,
+          color: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      record['name'] ?? 'Unknown name',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Color.fromRGBO(10, 62, 29, 1),
+                      ),
+                    ),
+                    IconButton(  
+                      icon: const Icon(Icons.edit, color: Colors.grey),
+                      onPressed: () {
+                        _showAddHospitalModal(context, record: record);
+                      },  
+                    ),
+                  ]
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  record['location'] ?? '',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const SizedBox(height: 12),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showAddHospitalModal(BuildContext context, {Map<String, dynamic>? record}) {
+    final TextEditingController nameController = TextEditingController();
+    final TextEditingController locationController = TextEditingController();
+
+    if (record != null) {
+      nameController.text = record['name'] ?? '';
+      locationController.text = record['location'] ?? '';
+    }
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: Colors.white,
+          title: Text(record == null ? "Add Hospital" : "Edit Hospital", style: const TextStyle(color: Color.fromRGBO(33, 158, 80, 1), fontSize: 20),),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                decoration: InputDecoration(  
+                  labelText: 'Name',  
+                  labelStyle: const TextStyle(color: Color.fromRGBO(10, 62, 29, 1)),  
+                  border: OutlineInputBorder(  
+                    borderRadius: BorderRadius.circular(10),  
+                    borderSide: const BorderSide(color: Color.fromRGBO(10, 62, 29, 1), width: 2.0),  
+                  ),  
+                  focusedBorder: OutlineInputBorder(  
+                    borderRadius: BorderRadius.circular(10),  
+                    borderSide: const BorderSide(color: Color.fromRGBO(10, 62, 29, 1)),  
+                  ),  
+                  enabledBorder: OutlineInputBorder(  
+                    borderRadius: BorderRadius.circular(10),  
+                    borderSide: const BorderSide(color: Color.fromRGBO(10, 62, 29, 1)),  
+                  ),  
+                            fillColor: Colors.white,  
+                  filled: true,  
+                ),
+                style: GoogleFonts.poppins(color: Colors.black),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: locationController,
+                decoration: InputDecoration(  
+                  labelText: 'Location',  
+                  labelStyle: const TextStyle(color: Color.fromRGBO(10, 62, 29, 1)),  
+                  border: OutlineInputBorder(  
+                    borderRadius: BorderRadius.circular(10),  
+                    borderSide: const BorderSide(color: Color.fromRGBO(10, 62, 29, 1), width: 2.0),  
+                  ),  
+                  focusedBorder: OutlineInputBorder(  
+                    borderRadius: BorderRadius.circular(10),  
+                    borderSide: const BorderSide(color: Color.fromRGBO(10, 62, 29, 1)),  
+                  ),  
+                  enabledBorder: OutlineInputBorder(  
+                    borderRadius: BorderRadius.circular(10),  
+                    borderSide: const BorderSide(color: Color.fromRGBO(10, 62, 29, 1)),  
+                  ),  
+                            fillColor: Colors.white,  
+                  filled: true,  
+                ),
+                style: GoogleFonts.poppins(color: Colors.black),
+              ),
+
+              const SizedBox(height: 16),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("Cancel", style: TextStyle(color: Color.fromRGBO(33, 158, 80, 1)),),
+            ),
+            TextButton(
+              onPressed: () async {
+                final name = nameController.text.trim();
+                final location = locationController.text.trim();
+
+                if (name.isNotEmpty && location.isNotEmpty) {
+                  final email = await SessionManager.getUserSession();
+                  final user = await DBHelper().getDoctorByEmail(email!);
+
+                  if (user != null) {
+                    Map<String, dynamic> hospital = {
+                      'name': name,
+                      'location': location,
+                    };
+                    if (record == null) {
+                      // Add new medical history
+                      await DBHelper().insertHospital(email, hospital);
+                    } else {
+                      // Update existing medical history
+                      await DBHelper().updateHospital(email, record['name'] ,hospital);
+                    }
+                    Navigator.pop(context); 
+                    setState(() {
+                      _loadAvaiableHospital(email); 
+                    });
+                  }
+                }
+              },
+              child: const Text("Save", style: TextStyle(color: Color.fromRGBO(33, 158, 80, 1)),),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
@@ -208,6 +391,18 @@ class _EditProfileState extends State<EditProfile> {
               }),
               _buildDatePickerField('Date of Birth', _dateOfBirthController),
               const SizedBox(height: 20),
+              _buildHospitalList(),
+              Center(  
+                  child: TextButton(  
+                    onPressed: () {
+                      _showAddHospitalModal(context);
+                    },  
+                    child: const Text(  
+                      'Add Section',  
+                      style: TextStyle(color: Colors.green),  
+                    ),  
+                  ),  
+                ),
               Center(
                 child: ElevatedButton(
                   onPressed: _saveProfile,
