@@ -1,13 +1,53 @@
+import 'package:doctor_app/data/db_helper.dart';
+import 'package:doctor_app/data/model/User.dart';
+import 'package:doctor_app/data/session.dart';
 import 'package:flutter/material.dart';  
 import 'package:google_fonts/google_fonts.dart';  
 import 'package:shared_preferences/shared_preferences.dart';
 import '../Auth/SignIn.dart';
 import '../Home/Profile/EditProfile.dart';
 
-class SettingsPage extends StatelessWidget {  
+class SettingsPage extends StatefulWidget {
+  const SettingsPage({Key? key}) : super(key: key);
+
+  @override
+  _SettingsPageState createState() => _SettingsPageState();
+}
+
+class _SettingsPageState extends State<SettingsPage> {
+  User? _user;
+  bool _isLoading = true;
+
+  void initState() {  
+    super.initState();  
+    _loadUserData();  
+  }
+
+  Future<void> _loadUserData() async {  
+    try {  
+      String? email = await SessionManager.getUserSession(); 
+      
+      if (email != null) {  
+        Map<String, dynamic>? userData = await DBHelper().getDoctorByEmail(email);
+        
+        if (userData != null) {  
+          setState(() {  
+            _user = User.fromMap(userData);  
+          });  
+        }  
+      }  
+    } catch (e) {  
+      // It's good practice to handle the error, e.g. log it or show feedback  
+    } finally {  
+      setState(() {
+        profile['name'] = _user!.fullName!;  
+        _isLoading = false;  
+      });  
+    }  
+  }
   // Profile data  
   final Map<String, String> profile = {  
-    'name': 'Jon',  
+    'name': '',  
     'position': 'Pediatrician',  
   };  
   Future<void> _logout(BuildContext context) async {
@@ -29,7 +69,7 @@ class SettingsPage extends StatelessWidget {
   Widget build(BuildContext context) {  
     return Scaffold(  
       backgroundColor: Colors.white,  
-      body: Padding(  
+      body: _isLoading ? const Center(child: CircularProgressIndicator(),) : Padding(  
         padding: const EdgeInsets.only(top: 50.0, right: 30, left: 30),  
         child: Column(  
           crossAxisAlignment: CrossAxisAlignment.start,  

@@ -16,6 +16,7 @@ class _AddAppointmentState extends State<AddAppointment> {
   String? _selectedTime;
   String? _selectedPatinetId; // To store selected doctor ID
   String? _selectedHospitalId;
+  List<Map<String, dynamic>> patients = [];
 
   @override
   void initState() {
@@ -29,6 +30,7 @@ class _AddAppointmentState extends State<AddAppointment> {
     try {
       if (widget.id != null) {
         List<Map<String, dynamic>> appointments = await DBHelper().getAppointmentsById(widget.id! as String);
+        final allPatients = await DBHelper().getAllpatients();
         if (appointments.isNotEmpty) {
           final appointment = appointments.first;
           setState(() {
@@ -36,6 +38,7 @@ class _AddAppointmentState extends State<AddAppointment> {
             _selectedPatinetId = appointment['user_id'].toString();
             _selectedHospitalId = appointment['hospital_id'].toString();
             _selectedTime = appointment['time'];
+            patients = allPatients;
           });
         }
       }
@@ -43,13 +46,6 @@ class _AddAppointmentState extends State<AddAppointment> {
       // Handle error
     }
   }
-
-  final List<Map<String, String>> patients = [
-    {'id': '1', 'name': 'Patient 1'},
-    {'id': '2', 'name': 'Patient 2'},
-    {'id': '3', 'name': 'Patient 3'},
-    {'id': '4', 'name': 'Patient 4'},
-  ];
 
   final List<Map<String, String>> hospitals = [
     {'id': '1', 'name': 'hospital 1'},

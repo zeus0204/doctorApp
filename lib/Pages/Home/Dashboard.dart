@@ -1,4 +1,6 @@
 import 'package:doctor_app/Pages/Home/ScanQR.dart';
+import 'package:doctor_app/data/db_helper.dart';
+import 'package:doctor_app/data/session.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';  
 
@@ -10,11 +12,32 @@ class Dashboard extends StatefulWidget {
 }
 
 class _DashboardState extends State<Dashboard> {
+
+  void initState() {  
+    super.initState();  
+    _loadUserData();  
+  } 
   final Map<String, dynamic> user = {
-    'name': 'Doctor Jon',
+    'name': '',
     'age': 29,
   };
-
+  Future<void> _loadUserData() async {
+    try {
+      String? email = await SessionManager.getUserSession();
+      if (email != null) {
+        Map<String, dynamic>? userData = await DBHelper().getDoctorByEmail(email);
+        if (userData != null) {
+          setState(() {
+            user['name'] = userData['fullName'];
+          });
+        }
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Your profile is lacked, Please login again!')),
+      );
+    }
+  }
   final List<Map<String, String>> doctors = [
     {'name': 'Patient 1', 'updated_history': 'Last Updated: 2h ago', 'avatar': 'assets/patient1.png'},
     {'name': 'Patient 2', 'updated_history': 'Last Updated: 3h ago', 'avatar': 'assets/patient2.png'},
@@ -173,39 +196,43 @@ class _DashboardState extends State<Dashboard> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Row(
-                        children: [
-                          const Icon(Icons.calendar_today, size: 16, color: Color.fromRGBO(33, 158, 80, 1)),
-                          SizedBox(width: size.width * 0.01),
-                          Flexible(
-                            child: Text(
-                              schedule['day_time'],
-                              style: GoogleFonts.poppins(
-                                color: const Color.fromRGBO(33, 158, 80, 1),
-                                fontWeight: FontWeight.w500,
-                                fontSize: size.width * 0.03,
+                      Expanded(
+                        child: Row(
+                          children: [
+                            const Icon(Icons.calendar_today, size: 16, color: Color.fromRGBO(33, 158, 80, 1)),
+                            SizedBox(width: size.width * 0.01),
+                            Flexible(
+                              child: Text(
+                                schedule['day_time'],
+                                style: GoogleFonts.poppins(
+                                  color: const Color.fromRGBO(33, 158, 80, 1),
+                                  fontWeight: FontWeight.w500,
+                                  fontSize: size.width * 0.03,
+                                ),
+                                overflow: TextOverflow.ellipsis,
                               ),
-                              overflow: TextOverflow.ellipsis,
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                      Row(
-                        children: [
-                          const Icon(Icons.access_time, size: 16, color: Color.fromRGBO(33, 158, 80, 1)),
-                          SizedBox(width: size.width * 0.01),
-                          Flexible(
-                            child: Text(
-                              "${schedule['start_time']} - ${schedule['end_time']}",
-                              style: GoogleFonts.poppins(
-                                color: const Color.fromRGBO(33, 158, 80, 1),
-                                fontWeight: FontWeight.w500,
-                                fontSize: size.width * 0.03,
+                      Expanded(
+                        child: Row(
+                          children: [
+                            const Icon(Icons.access_time, size: 16, color: Color.fromRGBO(33, 158, 80, 1)),
+                            SizedBox(width: size.width * 0.01),
+                            Flexible(
+                              child: Text(
+                                "${schedule['start_time']} - ${schedule['end_time']}",
+                                style: GoogleFonts.poppins(
+                                  color: const Color.fromRGBO(33, 158, 80, 1),
+                                  fontWeight: FontWeight.w500,
+                                  fontSize: size.width * 0.03,
+                                ),
+                                overflow: TextOverflow.ellipsis,
                               ),
-                              overflow: TextOverflow.ellipsis,
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ],
                   ),
