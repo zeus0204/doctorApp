@@ -12,11 +12,23 @@ class PatientDetails extends StatefulWidget {
 
 class _PatientDetailsState extends State<PatientDetails> {
   Map<String, dynamic> patientData = {};
+  String? errorMessage;
 
   @override
   void initState() {
     super.initState();
     _decodeQRData();
+  }
+
+  void _showError(String message) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   void _decodeQRData() {
@@ -64,19 +76,19 @@ class _PatientDetailsState extends State<PatientDetails> {
     } catch (e) {
       print('Error decoding QR data: $e');
       setState(() {
-        // Set default values in case of error
         patientData = {
           'error': 'Failed to decode patient data',
           'message': e.toString()
         };
+        errorMessage = 'Error loading patient data: ${e.toString()}';
       });
-      // Show error to user
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error loading patient data: ${e.toString()}'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      
+      // Schedule the error message to be shown after the build
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _showError(errorMessage!);
+        }
+      });
     }
   }
 
