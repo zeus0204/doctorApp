@@ -1,6 +1,6 @@
+import 'Appointment/appointment_calendar.dart';
 import 'ScanQR.dart';
 import 'package:flutter/material.dart';
-import '../Home/Appointment/Calendar.dart';
 import 'Dashboard.dart';
 import 'Settings.dart';
 

@@ -1,72 +1,63 @@
-import 'package:barcode_scan2/barcode_scan2.dart';
-import 'Records/Patients_details.dart'; // Adjust the path as needed
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:barcode_scan2/barcode_scan2.dart';
+import 'package:doctor_app/Pages/Patient/patient_details.dart';
 
-class ScanQR extends StatelessWidget {
+class ScanQR extends StatefulWidget {
+  const ScanQR({super.key});
+
+  @override
+  State<ScanQR> createState() => _ScanQRState();
+}
+
+class _ScanQRState extends State<ScanQR> {
+  @override
+  void initState() {
+    super.initState();
+    _scanQR();
+  }
+
+  void _scanQR() async {
+    try {
+      var result = await BarcodeScanner.scan(
+        options: ScanOptions(
+          strings: {
+            'cancel': 'Cancel',
+            'flash_on': 'Flash on',
+            'flash_off': 'Flash off',
+          },
+          restrictFormat: [BarcodeFormat.qr],
+          useCamera: -1,
+          android: const AndroidOptions(
+            aspectTolerance: 0.00,
+            useAutoFocus: true,
+          ),
+        ),
+      );
+
+      if (result.rawContent.isNotEmpty) {
+        if (!mounted) return;
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => PatientDetails(qrData: result.rawContent),
+          ),
+        );
+      } else {
+        if (!mounted) return;
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      print('Error scanning QR code: $e');
+      if (!mounted) return;
+      Navigator.pop(context);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return const Scaffold(
       body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Text(
-              'Scan your QR Code',
-              style: GoogleFonts.poppins(
-                fontSize: 30,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 30),
-            Container(
-              width: 346.28,
-              height: 372.28,
-              child: Image.asset(
-                'assets/images/QR.png', // Ensure the image path is correct
-                fit: BoxFit.cover,
-              ),
-            ),
-            const SizedBox(height: 30),
-            ElevatedButton.icon(
-              onPressed: () async {
-                try {
-                  // Perform QR Code scanning
-                  ScanResult codeScanner = await BarcodeScanner.scan();
-
-                  // Navigate to Scanner page with scanned data
-                  if (codeScanner.rawContent.isNotEmpty) {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) =>
-                            PatientsDetails(scannedData: codeScanner.rawContent),
-                      ),
-                    );
-                  }
-                } catch (e) {
-                  // Handle scanning errors (e.g., user cancels scanning)
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text("Scanning failed: $e")),
-                  );
-                }
-              },
-              icon: const Icon(Icons.qr_code_scanner, color: Colors.white),
-              label: Text(
-                'Scan QR Code',
-                style: GoogleFonts.poppins(color: Colors.white),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color.fromRGBO(52, 221, 90, 1),
-                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
-                ),
-              ),
-            ),
-          ],
-        ),
+        child: CircularProgressIndicator(),
       ),
     );
   }

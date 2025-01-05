@@ -55,9 +55,9 @@ class DBHelper {
 
   Future<Map<String, dynamic>?> getDoctorByEmail(String email) async {
     final querySnapshot = await _firestore
-    .collection('doctors')
-    .where('email', isEqualTo: email)
-    .get();
+        .collection('doctors')
+        .where('email', isEqualTo: email)
+        .get();
 
     if (querySnapshot.docs.isNotEmpty) {
       return querySnapshot.docs.first.data();
@@ -73,7 +73,7 @@ class DBHelper {
           .collection('doctors')
           .where('email', isEqualTo: email)
           .get();
-      
+
       // Check if any documents were found
       if (querySnapshot.docs.isNotEmpty) {
         // Assuming each email is unique, take the first match
@@ -252,6 +252,8 @@ class DBHelper {
       throw Exception('Failed to delete medical history: $e');
     }
   }
+
+  
 
   Future<List<Map<String, dynamic>>> getHospitalsByEmail(String email) async {
     try {

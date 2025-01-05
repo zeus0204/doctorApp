@@ -1,8 +1,14 @@
 import 'package:doctor_app/Pages/Home/ScanQR.dart';
+import 'package:doctor_app/Pages/Patient/patient_details.dart';
 import 'package:doctor_app/data/db_helper.dart';
 import 'package:doctor_app/data/session.dart';
+import 'package:doctor_app/models/schedule.dart';
+import 'package:doctor_app/widgets/schedule_card.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';  
+import 'package:google_fonts/google_fonts.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:intl/intl.dart'; // Add this import
+import 'package:barcode_scan2/barcode_scan2.dart';
 
 class Dashboard extends StatefulWidget {
   const Dashboard({super.key});
@@ -12,15 +18,65 @@ class Dashboard extends StatefulWidget {
 }
 
 class _DashboardState extends State<Dashboard> {
-
-  void initState() {  
-    super.initState();  
-    _loadUserData();  
-  } 
+  List<Map<String, dynamic>>? _medicalHistory = [];
+  List<Map<String, dynamic>> _patients = []; // Add this for storing patient info
+  String? _fullName;
+  String? _email;
   final Map<String, dynamic> user = {
     'name': '',
     'age': 29,
   };
+
+  void initState() {  
+    super.initState();  
+    _loadDoctorData();
+    _loadPatients();
+    _loadUserData();  
+  } 
+
+  Future<void> _loadDoctorData() async {
+    try {
+      final email = await SessionManager.getUserSession();
+      if (email != null) {
+        final doctorData = await DBHelper().getDoctorByEmail(email);
+        if (doctorData != null && mounted) {
+          setState(() {
+            _email = email;
+            _fullName = doctorData['fullName'];
+            user['name'] = doctorData['fullName'];
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading doctor data: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _loadPatients() async {
+    try {
+      final patients = await DBHelper().getAllpatients();
+      if (mounted) {
+        setState(() {
+          _patients = patients;
+          _medicalHistory = patients.map((patient) => {
+            'email': patient['email'],
+            'fullName': patient['fullName'],
+          }).toList();
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading patients: $e')),
+        );
+      }
+    }
+  }
+
   Future<void> _loadUserData() async {
     try {
       String? email = await SessionManager.getUserSession();
@@ -53,6 +109,97 @@ class _DashboardState extends State<Dashboard> {
     'end_time': '12:00 PM',
     'avatar': 'assets/dr_jon.png',
   };
+
+  Stream<List<Schedule>> _getSchedulesStream() async* {
+    try {
+      String? doctorEmail = await SessionManager.getUserSession();
+      if (doctorEmail == null) {
+        throw Exception('No user session found. Please log in again.');
+      }
+
+      yield* FirebaseFirestore.instance
+          .collection('appointments')
+          .where('doctorEmail', isEqualTo: doctorEmail)
+          .snapshots()
+          .map((snapshot) {
+        final schedules = snapshot.docs.map((doc) {
+          final data = doc.data();
+          final String appointmentId = doc.id;
+          
+          final String patientName = data['userEmail'] != null 
+              ? _patients.firstWhere(
+                  (patient) => patient['email'] == data['userEmail'],
+                  orElse: () => {'fullName': 'Unknown Patient'},
+                )['fullName'] ?? 'Unknown Patient'
+              : data['patientName'] ?? 'Unknown Patient';
+
+          final DateTime? appointmentDate = data['day'] != null 
+              ? DateTime.parse(data['day'].toString())
+              : null;
+
+          DateTime? startTime;
+          if (appointmentDate != null && data['time'] != null) {
+            final timeStr = data['time'].toString();
+            final timeParts = timeStr.toUpperCase().split(' ');
+            if (timeParts.length == 2) {
+              final time = timeParts[0].split(':');
+              int hour = int.parse(time[0]);
+              int minute = int.parse(time[1]);
+              
+              if (timeParts[1] == 'PM' && hour < 12) {
+                hour += 12;
+              } else if (timeParts[1] == 'AM' && hour == 12) {
+                hour = 0;
+              }
+              
+              startTime = DateTime(
+                appointmentDate.year,
+                appointmentDate.month,
+                appointmentDate.day,
+                hour,
+                minute,
+              );
+            }
+          }
+
+          final DateTime? endTime = startTime?.add(const Duration(hours: 1));
+          
+          if (appointmentDate == null || startTime == null || endTime == null) {
+            return null;
+          }
+
+          return Schedule(
+            doctor: patientName, // Using patient name instead of doctor name
+            address: data['hospitalName'] ?? 'Consultation',
+            dayTime: _formatDate(appointmentDate),
+            startTime: _formatTime(startTime),
+            endTime: _formatTime(endTime),
+            avatar: 'assets/images/avatar.png',
+            id: appointmentId,
+          );
+        })
+        .where((schedule) => schedule != null)
+        .cast<Schedule>()
+        .toList();
+        
+        return schedules;
+      });
+    } catch (e) {
+      yield [];
+    }
+  }
+
+  String _formatDate(DateTime? date) {
+    if (date == null) return '';
+    return DateFormat('EEEE, d MMMM').format(date);
+  }
+
+  String _formatTime(DateTime? time) {
+    if (time == null) return '';
+    return DateFormat('h:mm a').format(time);
+  }
+
+
 
   @override
   Widget build(BuildContext context) {
@@ -148,150 +295,42 @@ class _DashboardState extends State<Dashboard> {
   }
 
   Widget _buildScheduleCard(Size size) {
-    return Container(
-      margin: EdgeInsets.symmetric(horizontal: size.width * 0.05),
-      padding: EdgeInsets.all(size.width * 0.04),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(color: Colors.grey.withOpacity(0.2), blurRadius: 10, offset: const Offset(0, 4)),
-        ],
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              CircleAvatar(
-                backgroundImage: AssetImage(schedule['avatar']),
-                radius: size.width * 0.08,
-              ),
-              SizedBox(width: size.width * 0.04),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    schedule['doctor'],
-                    style: GoogleFonts.poppins(fontSize: size.width * 0.045, fontWeight: FontWeight.bold),
-                  ),
-                  Text(
-                    schedule['address'],
-                    style: GoogleFonts.poppins(color: Colors.grey, fontSize: size.width * 0.035),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          SizedBox(height: size.height * 0.02),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Expanded(
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: const Color.fromRGBO(33, 158, 80, 1).withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  padding: EdgeInsets.symmetric(vertical: size.height * 0.01, horizontal: size.width * 0.04),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Row(
-                          children: [
-                            const Icon(Icons.calendar_today, size: 16, color: Color.fromRGBO(33, 158, 80, 1)),
-                            SizedBox(width: size.width * 0.01),
-                            Flexible(
-                              child: Text(
-                                schedule['day_time'],
-                                style: GoogleFonts.poppins(
-                                  color: const Color.fromRGBO(33, 158, 80, 1),
-                                  fontWeight: FontWeight.w500,
-                                  fontSize: size.width * 0.03,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Expanded(
-                        child: Row(
-                          children: [
-                            const Icon(Icons.access_time, size: 16, color: Color.fromRGBO(33, 158, 80, 1)),
-                            SizedBox(width: size.width * 0.01),
-                            Flexible(
-                              child: Text(
-                                "${schedule['start_time']} - ${schedule['end_time']}",
-                                style: GoogleFonts.poppins(
-                                  color: const Color.fromRGBO(33, 158, 80, 1),
-                                  fontWeight: FontWeight.w500,
-                                  fontSize: size.width * 0.03,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
+    return StreamBuilder<List<Schedule>>(
+      stream: _getSchedulesStream(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        
+        if (snapshot.hasError) {
+          return Center(
+            child: Text('Error: ${snapshot.error}'),
+          );
+        }
+        
+        final schedules = snapshot.data ?? [];
+        if (schedules.isEmpty) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Text(
+                'No upcoming appointments',
+                style: GoogleFonts.poppins(
+                  fontSize: 16,
+                  color: Colors.grey,
                 ),
               ),
-            ],
-          ),
-          SizedBox(height: size.height * 0.02),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Expanded(
-                child: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: size.width * 0.02),
-                  child: OutlinedButton(
-                    onPressed: () {},
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: Color.fromRGBO(33, 158, 80, 1)),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                      foregroundColor: Colors.white,
-                    ),
-                    child: FittedBox(
-                      child: Text(
-                        "Reschedule",
-                        style: GoogleFonts.poppins(
-                          color: const Color.fromRGBO(33, 158, 80, 1),
-                          fontSize: size.width * 0.035,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              Expanded(
-                child: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: size.width * 0.02),
-                  child: ElevatedButton(
-                    onPressed: () {},
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color.fromRGBO(33, 158, 80, 1),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    ),
-                    child: FittedBox(
-                      child: Text(
-                        "Join Session",
-                        style: GoogleFonts.poppins(
-                          color: Colors.white,
-                          fontSize: size.width * 0.035,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
+            ),
+          );
+        }
+        
+        return ScheduleCard(
+          schedules: schedules,
+          size: Size(size.width, size.height * 0.25),
+          patients: _patients,
+          appointmentId: schedules.isNotEmpty ? schedules[0].id : '',
+        );
+      },
     );
   }
 
@@ -355,7 +394,7 @@ class _DashboardState extends State<Dashboard> {
                       onPressed: () {
                         Navigator.push(
                           context,
-                          MaterialPageRoute(builder: (context) => ScanQR()), // Navigate to Home with Bottom Nav
+                          MaterialPageRoute(builder: (context) => ScanQR()),
                         );
                       },
                       style: ElevatedButton.styleFrom(
