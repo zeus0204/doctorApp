@@ -1,5 +1,9 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:doctor_app/data/db_helper.dart';
+import 'package:doctor_app/data/session.dart';
 import 'package:flutter/material.dart';
-import 'dart:convert';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
 
 class PatientDetails extends StatefulWidget {
   final String qrData;
@@ -31,45 +35,88 @@ class _PatientDetailsState extends State<PatientDetails> {
     }
   }
 
+  String _formatDate(String dateStr) {
+    if (dateStr.isEmpty) return 'N/A';
+    
+    try {
+      // Parse the datetime string
+      final DateTime date = DateTime.parse(dateStr);
+      
+      // Format it into the desired format (e.g., "DD/MM/YYYY")
+      return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
+    } catch (e) {
+      // Return a default value if parsing fails
+      return 'Invalid Date';
+    }
+  }
+
   void _decodeQRData() {
     try {
-      String decodedString = Uri.decodeFull(widget.qrData);
-      // Remove the curly braces from the string
-      decodedString = decodedString.substring(1, decodedString.length - 1);
-      
-      // Split the string into key-value pairs
-      List<String> pairs = decodedString.split(', ');
+      String rawData = widget.qrData;
+      print(rawData);
+      // Split the data based on lines or entries
+      List<String> entries = rawData.split('\n');
+
       Map<String, dynamic> result = {};
-      
-      for (String pair in pairs) {
-        List<String> keyValue = pair.split(': ');
-        String key = keyValue[0].replaceAll("'", "");
-        String value = keyValue[1].replaceAll("'", "");
-        
-        if (key == 'medicalHistory') {
-          // Parse the medical history list
-          value = value.substring(1, value.length - 1); // Remove brackets
-          List<Map<String, dynamic>> historyList = [];
-          if (value.isNotEmpty) {
-            List<String> items = value.split('}, {');
-            for (String item in items) {
-              item = item.replaceAll('{', '').replaceAll('}', '');
-              Map<String, dynamic> historyItem = {};
-              List<String> itemPairs = item.split(', ');
-              for (String itemPair in itemPairs) {
-                List<String> itemKeyValue = itemPair.split(': ');
-                historyItem[itemKeyValue[0].replaceAll("'", "")] = 
-                    itemKeyValue[1].replaceAll("'", "");
+
+      for (String entry in entries) {
+        if (entry.isNotEmpty) {
+          // Remove curly braces
+          entry = entry.substring(1, entry.length - 1);
+
+          // Check for presence of ': ' and split accordingly
+          int index = entry.indexOf(': ');
+          if (index != -1) {
+            String key = entry.substring(0, index).trim();
+            String value = entry.substring(index + 2).trim();
+
+            if ((key == 'medicalHistory' || key == 'records') &&
+                value.startsWith('[') &&
+                value.endsWith(']')) {
+              // Parse list using RegExp to split by '}, {'
+              value = value.substring(1, value.length - 1); // Trim brackets
+              List<Map<String, dynamic>> itemList = [];
+
+              if (value.isNotEmpty) {
+                RegExp regExp = RegExp(r'\}, \{');
+                List<String> items = value.split(regExp);
+                for (String item in items) {
+                  item = item.replaceAll('{', '').replaceAll('}', '');
+                  Map<String, dynamic> itemMap = {};
+                  List<String> itemPairs = item.split(', ');
+                  for (String itemPair in itemPairs) {
+                    int itemIndex = itemPair.indexOf(': ');
+                    if (itemIndex != -1) {
+                      String itemKey = itemPair.substring(0, itemIndex).trim();
+                      String itemValue =
+                          itemPair.substring(itemIndex + 2).trim();
+
+                      if (itemKey == 'time') {
+                        // Assuming the timestamp format is like "Timestamp(seconds=xxx, nanoseconds=yyy)"
+                        final secondsRegEx = RegExp(r'seconds=(\d+)');
+                        final match = secondsRegEx.firstMatch(itemValue);
+                        if (match != null) {
+                          int seconds = int.parse(match.group(1)!);
+                          DateTime date =
+                              DateTime.fromMillisecondsSinceEpoch(seconds * 1000);
+                          itemValue = DateFormat('dd/MM/yyyy').format(date);
+                        }
+                      }
+                      
+                      itemMap[itemKey] = itemValue;
+                    }
+                  }
+                  itemList.add(itemMap);
+                }
               }
-              historyList.add(historyItem);
+              result[key] = itemList;
+            } else {
+              result[key] = value;
             }
           }
-          result[key] = historyList;
-        } else {
-          result[key] = value;
         }
       }
-      
+
       setState(() {
         patientData = result;
       });
@@ -78,12 +125,11 @@ class _PatientDetailsState extends State<PatientDetails> {
       setState(() {
         patientData = {
           'error': 'Failed to decode patient data',
-          'message': e.toString()
+          'message': e.toString(),
         };
         errorMessage = 'Error loading patient data: ${e.toString()}';
       });
-      
-      // Schedule the error message to be shown after the build
+
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           _showError(errorMessage!);
@@ -92,10 +138,10 @@ class _PatientDetailsState extends State<PatientDetails> {
     }
   }
 
+
+
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
-    
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -193,7 +239,7 @@ class _PatientDetailsState extends State<PatientDetails> {
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      patientData['fullName'] ?? 'N/A',
+                      patientData['name'] ?? 'N/A',
                       style: const TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
@@ -204,7 +250,7 @@ class _PatientDetailsState extends State<PatientDetails> {
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: [
                         _buildInfoItem('Contact:', patientData['contact'] ?? 'N/A'),
-                        _buildInfoItem('Age:', _calculateAge(patientData['dateOfBirth'] ?? '')),
+                        _buildInfoItem('Birthday:', _formatDate(patientData['birthday'] ?? '')),
                         _buildInfoItem('Phone:', patientData['phoneNumber'] ?? 'N/A'),
                       ],
                     ),
@@ -212,21 +258,21 @@ class _PatientDetailsState extends State<PatientDetails> {
                 ),
               ),
               const SizedBox(height: 24),
-              _buildSection(
-                'Medical Record',
+              _buildMedicalHistorySection(
+                'Medical History',
                 (patientData['medicalHistory'] as List<Map<String, dynamic>>?) ?? [],
               ),
               const SizedBox(height: 24),
-              _buildSection(
-                'Prescriptions',
-                (patientData['medicalHistory'] as List<Map<String, dynamic>>?) ?? [],
+              _buildMedicalRecordSection(
+                'Medical Records',
+                (patientData['records'] as List<Map<String, dynamic>>?) ?? [],
               ),
               const SizedBox(height: 24),
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: () {
-                    // Handle add record
+                    _showAddMedicalRecordsModal(context);
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color.fromRGBO(33, 158, 80, 1),
@@ -250,7 +296,143 @@ class _PatientDetailsState extends State<PatientDetails> {
       ),
     );
   }
+  void _showAddMedicalRecordsModal(BuildContext context, {Map<String, dynamic>? record}) {
+    final TextEditingController titleController = TextEditingController();
+    final TextEditingController subtitleController = TextEditingController();
+    final TextEditingController descriptionController = TextEditingController();
 
+    if (record != null) {
+      titleController.text = record['title'] ?? '';
+      subtitleController.text = record['subtitle'] ?? '';
+      descriptionController.text = record['description'] ?? '';
+    }
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: Colors.white,
+          title: Text(record == null ? "Add Medical Record" : "Edit Medical Record", style: const TextStyle(color: Color.fromRGBO(33, 158, 80, 1), fontSize: 20),),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: titleController,
+                decoration: InputDecoration(  
+                  labelText: 'Title',  
+                  labelStyle: const TextStyle(color: Color.fromRGBO(10, 62, 29, 1)),  
+                  border: OutlineInputBorder(  
+                    borderRadius: BorderRadius.circular(10),  
+                    borderSide: const BorderSide(color: Color.fromRGBO(10, 62, 29, 1), width: 2.0),  
+                  ),  
+                  focusedBorder: OutlineInputBorder(  
+                    borderRadius: BorderRadius.circular(10),  
+                    borderSide: const BorderSide(color: Color.fromRGBO(10, 62, 29, 1)),  
+                  ),  
+                  enabledBorder: OutlineInputBorder(  
+                    borderRadius: BorderRadius.circular(10),  
+                    borderSide: const BorderSide(color: Color.fromRGBO(10, 62, 29, 1)),  
+                  ),  
+                            fillColor: Colors.white,  
+                  filled: true,  
+                ),
+                style: GoogleFonts.poppins(color: Colors.black),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: subtitleController,
+                decoration: InputDecoration(  
+                  labelText: 'Subtitle',  
+                  labelStyle: const TextStyle(color: Color.fromRGBO(10, 62, 29, 1)),  
+                  border: OutlineInputBorder(  
+                    borderRadius: BorderRadius.circular(10),  
+                    borderSide: const BorderSide(color: Color.fromRGBO(10, 62, 29, 1), width: 2.0),  
+                  ),  
+                  focusedBorder: OutlineInputBorder(  
+                    borderRadius: BorderRadius.circular(10),  
+                    borderSide: const BorderSide(color: Color.fromRGBO(10, 62, 29, 1)),  
+                  ),  
+                  enabledBorder: OutlineInputBorder(  
+                    borderRadius: BorderRadius.circular(10),  
+                    borderSide: const BorderSide(color: Color.fromRGBO(10, 62, 29, 1)),  
+                  ),  
+                            fillColor: Colors.white,  
+                  filled: true,  
+                ),
+                style: GoogleFonts.poppins(color: Colors.black),
+              ),
+
+              const SizedBox(height: 16),
+
+              TextField(
+                controller: descriptionController,
+                decoration: InputDecoration(  
+                  labelText: 'Description',  
+                  labelStyle: const TextStyle(color: Color.fromRGBO(10, 62, 29, 1)),  
+                  border: OutlineInputBorder(  
+                    borderRadius: BorderRadius.circular(10),  
+                    borderSide: const BorderSide(color: Color.fromRGBO(10, 62, 29, 1), width: 2.0),  
+                  ),  
+                  focusedBorder: OutlineInputBorder(  
+                    borderRadius: BorderRadius.circular(10),  
+                    borderSide: const BorderSide(color: Color.fromRGBO(10, 62, 29, 1)),  
+                  ),  
+                  enabledBorder: OutlineInputBorder(  
+                    borderRadius: BorderRadius.circular(10),  
+                    borderSide: const BorderSide(color: Color.fromRGBO(10, 62, 29, 1)),  
+                  ),  
+                            fillColor: Colors.white,  
+                  filled: true,  
+                ),
+                style: GoogleFonts.poppins(color: Colors.black),
+                maxLines: 3,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("Cancel", style: TextStyle(color: Color.fromRGBO(33, 158, 80, 1)),),
+            ),
+            TextButton(
+              onPressed: () async {
+                final String? doctorEmail = await SessionManager.getUserSession();
+                final String patientEmail = patientData['email'] ?? '';
+                final String title = titleController.text.trim();
+                final String subtitle = subtitleController.text.trim();
+                final String description = descriptionController.text.trim();
+                if (title != '' && subtitle != '' && description != '') {
+                  saveMedicalRecord(doctorEmail, patientEmail, title, subtitle, description);
+                }
+                else {
+                  _showError('Please input correct information!');
+                }
+              },
+              child: const Text("Save", style: TextStyle(color: Color.fromRGBO(33, 158, 80, 1)),),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> saveMedicalRecord (String? doctorEmail, String patientEmail, String title, String subtitle, String description) async {
+    try {
+      await FirebaseFirestore.instance.collection('records').add({
+        'doctorEmail': doctorEmail,
+        'patientEmail': patientEmail,
+        'title': title,
+        'subtitle': subtitle,
+        'description': description,
+        'time': Timestamp.now(),
+      });
+      Navigator.pop(context); // Close the dialog on success
+      _showError('Record saved successfully.');
+    } catch (e) {
+      print('Error adding document: $e');
+      _showError('Failed to save record: ${e.toString()}');
+    }
+  }
   Widget _buildInfoItem(String label, String value) {
     return Column(
       children: [
@@ -273,7 +455,83 @@ class _PatientDetailsState extends State<PatientDetails> {
     );
   }
 
-  Widget _buildSection(String title, List<Map<String, dynamic>> items) {
+  Widget _buildMedicalHistorySection(String title, List<Map<String, dynamic>> items) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: Color.fromRGBO(33, 158, 80, 1),
+          ),
+        ),
+        const SizedBox(height: 12),
+        ListView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: items.length,
+          itemBuilder: (context, index) {
+            final item = items[index];
+            return Card(
+              margin: const EdgeInsets.symmetric(vertical: 8),
+              elevation: 2,
+              color: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          item['title'] ?? 'N/A',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Color.fromRGBO(10, 62, 29, 1),
+                          ),
+                        ),
+                      ]
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      item['subtitle'] ?? 'N/A',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      item['description'] ?? 'N/A',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  Future<String> getDoctornameByEmail(String doctorEmail) async {
+    Map<String, dynamic>? userData = await DBHelper().getDoctorByEmail(doctorEmail);
+    return userData?['fullName'] ?? 'Unknown Doctor';
+  }
+
+  Widget _buildMedicalRecordSection(String title, List<Map<String, dynamic>> items) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -302,16 +560,29 @@ class _PatientDetailsState extends State<PatientDetails> {
                   item['title'] ?? 'N/A',
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
-                subtitle: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(item['subtitle'] ?? 'N/A'),
-                    Text(item['description'] ?? 'N/A'),
-                  ],
+                subtitle: FutureBuilder<String>(
+                  future: getDoctornameByEmail(item['doctorEmail']),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const CircularProgressIndicator(); // Show loading indicator while waiting
+                    } else if (snapshot.hasError) {
+                      return Text('Error: ${snapshot.error}');
+                    } else {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(item['subtitle'] ?? 'N/A'),
+                          Text(item['description'] ?? 'N/A'),
+                          Text(snapshot.data ?? 'Unknown Doctor'), // Display doctor name
+                          Text(item['time'] ?? 'N/A'),
+                        ],
+                      );
+                    }
+                  },
                 ),
                 trailing: TextButton(
                   onPressed: () {
-                    // Handle view action
+                    _showAddMedicalRecordsModal(context, record: item);
                   },
                   child: const Text(
                     'View',
@@ -328,18 +599,5 @@ class _PatientDetailsState extends State<PatientDetails> {
     );
   }
 
-  String _calculateAge(String dateOfBirth) {
-    if (dateOfBirth.isEmpty) return 'N/A';
-    try {
-      final dob = DateTime.parse(dateOfBirth);
-      final now = DateTime.now();
-      int age = now.year - dob.year;
-      if (now.month < dob.month || (now.month == dob.month && now.day < dob.day)) {
-        age--;
-      }
-      return '$age';
-    } catch (e) {
-      return 'N/A';
-    }
-  }
+
 }
