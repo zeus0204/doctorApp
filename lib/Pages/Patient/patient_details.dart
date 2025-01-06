@@ -33,13 +33,17 @@ class _PatientDetailsState extends State<PatientDetails> {
           .where('patientEmail', isEqualTo: email)
           .get();
 
-      records =
-          querySnapshot.docs.map((doc) => doc.data() as Map<String, dynamic>).toList();
+      records = querySnapshot.docs.map((doc) {
+        Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+        data['id'] = doc.id; // Add document ID to the record data
+        return data;
+      }).toList();
+      
       setState(() {
         _records = records;
       });
     } catch (e) {
-      // Handle error
+      _showError('Error fetching records: ${e.toString()}');
     }
     return records;
   }
@@ -176,7 +180,81 @@ class _PatientDetailsState extends State<PatientDetails> {
     }
   }
 
+  Future<void> saveMedicalRecord(String? doctorEmail, String patientEmail, String title, String subtitle, String description, {String? recordId}) async {
+    try {
+      if (recordId != null) {
+        // Update existing record
+        await FirebaseFirestore.instance.collection('records').doc(recordId).update({
+          'title': title,
+          'subtitle': subtitle,
+          'description': description,
+          'updatedAt': Timestamp.now(),
+        });
+        _showSuccess('Record updated successfully.');
+      } else {
+        // Create new record
+        await FirebaseFirestore.instance.collection('records').add({
+          'doctorEmail': doctorEmail,
+          'patientEmail': patientEmail,
+          'title': title,
+          'subtitle': subtitle,
+          'description': description,
+          'time': Timestamp.now(),
+        });
+        _showSuccess('Record saved successfully.');
+      }
+      Navigator.pop(context);
+      setState(() {
+        _fetchRecords(patientEmail);
+      });
+    } catch (e) {
+      print('Error saving/updating record: $e');
+      _showError('Failed to save/update record: ${e.toString()}');
+    }
+  }
 
+  Future<void> _deleteRecord(String recordId, String patientEmail) async {
+    try {
+      // Show confirmation dialog
+      bool confirmDelete = await showDialog(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: const Text('Confirm Delete'),
+            content: const Text('Are you sure you want to delete this record?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                style: TextButton.styleFrom(
+                  foregroundColor: Colors.red,
+                ),
+                child: const Text('Delete'),
+              ),
+            ],
+          );
+        },
+      ) ?? false;
+
+      if (!confirmDelete) return;
+
+      await FirebaseFirestore.instance
+          .collection('records')
+          .doc(recordId)
+          .delete();
+
+      _showSuccess('Record deleted successfully.');
+      setState(() {
+        _fetchRecords(patientEmail);
+      });
+    } catch (e) {
+      print('Error deleting record: $e');
+      _showError('Failed to delete record: ${e.toString()}');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -400,9 +478,7 @@ class _PatientDetailsState extends State<PatientDetails> {
                 ),
                 style: GoogleFonts.poppins(color: Colors.black),
               ),
-
               const SizedBox(height: 16),
-
               TextField(
                 controller: descriptionController,
                 decoration: InputDecoration(  
@@ -441,7 +517,11 @@ class _PatientDetailsState extends State<PatientDetails> {
                 final String subtitle = subtitleController.text.trim();
                 final String description = descriptionController.text.trim();
                 if (title != '' && subtitle != '' && description != '') {
-                  saveMedicalRecord(doctorEmail, patientEmail, title, subtitle, description);
+                  if (record != null) {
+                    saveMedicalRecord(doctorEmail, patientEmail, title, subtitle, description, recordId: record['id']);
+                  } else {
+                    saveMedicalRecord(doctorEmail, patientEmail, title, subtitle, description);
+                  }
                 }
                 else {
                   _showError('Please input correct information!');
@@ -455,26 +535,6 @@ class _PatientDetailsState extends State<PatientDetails> {
     );
   }
 
-  Future<void> saveMedicalRecord (String? doctorEmail, String patientEmail, String title, String subtitle, String description) async {
-    try {
-      await FirebaseFirestore.instance.collection('records').add({
-        'doctorEmail': doctorEmail,
-        'patientEmail': patientEmail,
-        'title': title,
-        'subtitle': subtitle,
-        'description': description,
-        'time': Timestamp.now(),
-      });
-      _showSuccess('Record saved successfully.');
-      Navigator.pop(context); 
-      setState(() {
-        _fetchRecords(patientEmail);
-      });
-    } catch (e) {
-      print('Error adding document: $e');
-      _showError('Failed to save record: ${e.toString()}');
-    }
-  }
   Widget _buildInfoItem(String label, String value) {
     return Column(
       children: [
@@ -650,7 +710,7 @@ class _PatientDetailsState extends State<PatientDetails> {
                                 IconButton(
                                   icon: const Icon(Icons.delete, color: Colors.red),
                                   onPressed: () {
-                                    
+                                    _deleteRecord(item['id'], patientData['email'] ?? '');
                                   },
                                 ),
                               ],

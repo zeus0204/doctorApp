@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'SignIn.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+
 class Signup extends StatefulWidget {  
   const Signup({super.key});  
 
@@ -19,47 +20,59 @@ class _SignupState extends State<Signup> {
   String? _phoneNumber;
   String? _email;
   String? _password;
+  bool _isLoading = false;
 
   Future<void> _submitForm() async {
-    if (_signupFormKey.currentState!.validate()) {
+    if (!_signupFormKey.currentState!.validate()) return;
+    
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
       _signupFormKey.currentState!.save();
-      try {
-          UserCredential userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
-            email: _email!,
-            password: _password!,
-          );
-          final doctorData = {
-            'fullName': _fullName,
-            'email': _email,
-            'password': _password,
-            'phoneNumber': _phoneNumber,
-          };
+      UserCredential userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+        email: _email!,
+        password: _password!,
+      );
+      
+      final doctorData = {
+        'fullName': _fullName,
+        'email': _email,
+        'password': _password,
+        'phoneNumber': _phoneNumber,
+      };
 
-          await DBHelper().insertDoctor(doctorData);
+      await DBHelper().insertDoctor(doctorData);
 
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('User signed up successfully!')));
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => const Signin()),
-          );
-      } on FirebaseAuthException catch (e) {
-          debugPrint("FirebaseAuthException: ${e.message}");
-          String errorMessage;
-          if (e.code == 'email-already-in-use') {
-            errorMessage = 'This email is already in use.';
-          } else if (e.code == 'weak-password') {
-            errorMessage = 'The password provided is too weak.';
-          } else {
-            errorMessage = 'An error occurred: ${e.message ?? 'Unknown error'}';
-          }
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(errorMessage)));
-      } catch (e) {
-          debugPrint("Unexpected error: $e");
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Unexpected error occurred. Try again.")));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('User signed up successfully!')));
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const Signin()),
+      );
+    } on FirebaseAuthException catch (e) {
+      debugPrint("FirebaseAuthException: ${e.message}");
+      String errorMessage;
+      if (e.code == 'email-already-in-use') {
+        errorMessage = 'This email is already in use.';
+      } else if (e.code == 'weak-password') {
+        errorMessage = 'The password provided is too weak.';
+      } else {
+        errorMessage = 'An error occurred: ${e.message ?? 'Unknown error'}';
       }
-
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(errorMessage)));
+    } catch (e) {
+      debugPrint("Unexpected error: $e");
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Unexpected error occurred. Try again.")));
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
+
   @override  
   Widget build(BuildContext context) {  
     return Scaffold(  
@@ -264,8 +277,24 @@ class _SignupState extends State<Signup> {
                           borderRadius: BorderRadius.circular(10),  
                         ),  
                       ),  
-                      onPressed: _submitForm,  
-                      child: Text('Sign Up', style: GoogleFonts.poppins(fontSize: 18, color: Colors.white, fontWeight: FontWeight.w400)),  
+                      onPressed: _isLoading ? null : _submitForm,
+                      child: _isLoading
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                              ),
+                            )
+                          : Text(
+                              'Sign Up',
+                              style: GoogleFonts.poppins(
+                                fontSize: 18,
+                                color: Colors.white,
+                                fontWeight: FontWeight.w400,
+                              ),
+                            ),
                     ),  
                   ),  
                   Column(  
