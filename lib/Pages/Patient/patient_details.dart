@@ -18,7 +18,7 @@ class _PatientDetailsState extends State<PatientDetails> {
   Map<String, dynamic> patientData = {};
   String? errorMessage;
   List<Map<String, dynamic>> _records = [];
-
+  
   @override
   void initState() {
     super.initState();
@@ -35,6 +35,9 @@ class _PatientDetailsState extends State<PatientDetails> {
 
       records =
           querySnapshot.docs.map((doc) => doc.data() as Map<String, dynamic>).toList();
+      setState(() {
+        _records = records;
+      });
     } catch (e) {
       // Handle error
     }
@@ -67,7 +70,7 @@ class _PatientDetailsState extends State<PatientDetails> {
     }
   }
 
-  void _decodeQRData() {
+  Future<void> _decodeQRData() async {
     try {
       String rawData = widget.qrData;
       print(rawData);
@@ -119,7 +122,7 @@ class _PatientDetailsState extends State<PatientDetails> {
                           itemValue = DateFormat('dd/MM/yyyy').format(date);
                         }
                       }
-                      
+
                       itemMap[itemKey] = itemValue;
                     }
                   }
@@ -134,24 +137,32 @@ class _PatientDetailsState extends State<PatientDetails> {
         }
       }
 
-      setState(() {
-        patientData = result;
-      });
+      // Fetch records after decoding QR data
+      List<Map<String, dynamic>> records =
+          await _fetchRecords(result['email']);
+
+      // Set state after all async work is complete
+      if (mounted) {
+        setState(() {
+          patientData = result;
+          _records = records;
+        });
+      }
     } catch (e) {
       print('Error decoding QR data: $e');
-      setState(() {
-        patientData = {
-          'error': 'Failed to decode patient data',
-          'message': e.toString(),
-        };
-        errorMessage = 'Error loading patient data: ${e.toString()}';
-      });
+      if (mounted) {
+        setState(() {
+          patientData = {
+            'error': 'Failed to decode patient data',
+            'message': e.toString(),
+          };
+          errorMessage = 'Error loading patient data: ${e.toString()}';
+        });
 
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
           _showError(errorMessage!);
-        }
-      });
+        });
+      }
     }
   }
 
@@ -280,23 +291,10 @@ class _PatientDetailsState extends State<PatientDetails> {
                 (patientData['medicalHistory'] as List<Map<String, dynamic>>?) ?? [],
               ),
               const SizedBox(height: 24),
-              FutureBuilder<List<Map<String, dynamic>>>(
-                future: _fetchRecords(patientData['email']),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  } else if (snapshot.hasError) {
-                    return Text('Error: ${snapshot.error}');
-                  } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                    return const Text('No medical records found.');
-                  }
-
-                  return _buildMedicalRecordSection(
+              _buildMedicalRecordSection(
                     'Medical Records',
-                    snapshot.data!,
-                  );
-                },
-              ),
+                    _records,
+                  ),
               const SizedBox(height: 24),
               SizedBox(
                 width: double.infinity,
@@ -457,6 +455,10 @@ class _PatientDetailsState extends State<PatientDetails> {
         'time': Timestamp.now(),
       });
       _showError('Record saved successfully.');
+      Navigator.pop(context); 
+      setState(() {
+        _fetchRecords(patientEmail);
+      });
     } catch (e) {
       print('Error adding document: $e');
       _showError('Failed to save record: ${e.toString()}');
@@ -573,67 +575,78 @@ class _PatientDetailsState extends State<PatientDetails> {
           ),
         ),
         const SizedBox(height: 12),
-        ListView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: items.length,
-          itemBuilder: (context, index) {
-            final item = items[index];
-            // Safely handling the Timestamp conversion
-            String formattedDate = 'N/A';
-            if (item['time'] is Timestamp) {
-              final timestamp = item['time'] as Timestamp;
-              DateTime date = timestamp.toDate();
-              formattedDate = DateFormat('dd/MM/yyyy').format(date);
-            }
-            return Card(
-              margin: const EdgeInsets.only(bottom: 8),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: ListTile(
-                title: Text(
-                  item['title'] ?? 'N/A',
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-                subtitle: FutureBuilder<String>(
-                  future: getDoctornameByEmail(item['doctorEmail']),
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting) {
-                      return const CircularProgressIndicator(); // Show loading indicator while waiting
-                    } else if (snapshot.hasError) {
-                      return Text('Error: ${snapshot.error}');
-                    } else {
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(item['subtitle'] ?? 'N/A'),
-                          Text(item['description'] ?? 'N/A'),
-                          Text(snapshot.data ?? 'Unknown Doctor'), // Display doctor name
-                          Text(formattedDate),
-                        ],
-                      );
-                    }
-                  },
-                ),
-                trailing: TextButton(
-                  onPressed: () {
-                    _showAddMedicalRecordsModal(context, record: item);
-                  },
-                  child: const Text(
-                    'View',
-                    style: TextStyle(
-                      color: Color.fromRGBO(33, 158, 80, 1),
+        FutureBuilder<String?>(
+          future: SessionManager.getUserSession(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const CircularProgressIndicator(); // Show loading indicator while waiting
+            } else if (snapshot.hasError || !snapshot.hasData) {
+              return Text('Error: ${snapshot.error ?? "No user session available"}');
+            } else {
+              final sessionEmail = snapshot.data;
+              return ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: items.length,
+                itemBuilder: (context, index) {
+                  final item = items[index];
+                  String formattedDate = 'N/A';
+                  if (item['time'] is Timestamp) {
+                    final timestamp = item['time'] as Timestamp;
+                    DateTime date = timestamp.toDate();
+                    formattedDate = DateFormat('dd/MM/yyyy').format(date);
+                  }
+                  return Card(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                  ),
-                ),
-              ),
-            );
+                    child: ListTile(
+                      title: Text(
+                        item['title'] ?? 'N/A',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      subtitle: FutureBuilder<String>(
+                        future: getDoctornameByEmail(item['doctorEmail']),
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState == ConnectionState.waiting) {
+                            return const CircularProgressIndicator();
+                          } else if (snapshot.hasError) {
+                            return Text('Error: ${snapshot.error}');
+                          } else {
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(item['subtitle'] ?? 'N/A'),
+                                Text(item['description'] ?? 'N/A'),
+                                Text(snapshot.data ?? 'Unknown Doctor'),
+                                Text(formattedDate),
+                              ],
+                            );
+                          }
+                        },
+                      ),
+                      trailing: (sessionEmail == item['doctorEmail'])
+                          ? TextButton(
+                              onPressed: () {
+                                _showAddMedicalRecordsModal(context, record: item);
+                              },
+                              child: const Text(
+                                'View',
+                                style: TextStyle(
+                                  color: Color.fromRGBO(33, 158, 80, 1),
+                                ),
+                              ),
+                            )
+                          : null,
+                    ),
+                  );
+                },
+              );
+            }
           },
         ),
       ],
     );
   }
-
-
 }
