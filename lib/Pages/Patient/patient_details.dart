@@ -17,11 +17,28 @@ class PatientDetails extends StatefulWidget {
 class _PatientDetailsState extends State<PatientDetails> {
   Map<String, dynamic> patientData = {};
   String? errorMessage;
+  List<Map<String, dynamic>> _records = [];
 
   @override
   void initState() {
     super.initState();
     _decodeQRData();
+  }
+
+  Future<List<Map<String, dynamic>>> _fetchRecords(String? email) async {
+    List<Map<String, dynamic>> records = [];
+    try {
+      QuerySnapshot querySnapshot = await FirebaseFirestore.instance
+          .collection('records')
+          .where('patientEmail', isEqualTo: email)
+          .get();
+
+      records =
+          querySnapshot.docs.map((doc) => doc.data() as Map<String, dynamic>).toList();
+    } catch (e) {
+      // Handle error
+    }
+    return records;
   }
 
   void _showError(String message) {
@@ -70,7 +87,7 @@ class _PatientDetailsState extends State<PatientDetails> {
             String key = entry.substring(0, index).trim();
             String value = entry.substring(index + 2).trim();
 
-            if ((key == 'medicalHistory' || key == 'records') &&
+            if ((key == 'medicalHistory') &&
                 value.startsWith('[') &&
                 value.endsWith(']')) {
               // Parse list using RegExp to split by '}, {'
@@ -263,9 +280,22 @@ class _PatientDetailsState extends State<PatientDetails> {
                 (patientData['medicalHistory'] as List<Map<String, dynamic>>?) ?? [],
               ),
               const SizedBox(height: 24),
-              _buildMedicalRecordSection(
-                'Medical Records',
-                (patientData['records'] as List<Map<String, dynamic>>?) ?? [],
+              FutureBuilder<List<Map<String, dynamic>>>(
+                future: _fetchRecords(patientData['email']),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  } else if (snapshot.hasError) {
+                    return Text('Error: ${snapshot.error}');
+                  } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                    return const Text('No medical records found.');
+                  }
+
+                  return _buildMedicalRecordSection(
+                    'Medical Records',
+                    snapshot.data!,
+                  );
+                },
               ),
               const SizedBox(height: 24),
               SizedBox(
@@ -426,7 +456,6 @@ class _PatientDetailsState extends State<PatientDetails> {
         'description': description,
         'time': Timestamp.now(),
       });
-      Navigator.pop(context); // Close the dialog on success
       _showError('Record saved successfully.');
     } catch (e) {
       print('Error adding document: $e');
@@ -550,6 +579,13 @@ class _PatientDetailsState extends State<PatientDetails> {
           itemCount: items.length,
           itemBuilder: (context, index) {
             final item = items[index];
+            // Safely handling the Timestamp conversion
+            String formattedDate = 'N/A';
+            if (item['time'] is Timestamp) {
+              final timestamp = item['time'] as Timestamp;
+              DateTime date = timestamp.toDate();
+              formattedDate = DateFormat('dd/MM/yyyy').format(date);
+            }
             return Card(
               margin: const EdgeInsets.only(bottom: 8),
               shape: RoundedRectangleBorder(
@@ -574,7 +610,7 @@ class _PatientDetailsState extends State<PatientDetails> {
                           Text(item['subtitle'] ?? 'N/A'),
                           Text(item['description'] ?? 'N/A'),
                           Text(snapshot.data ?? 'Unknown Doctor'), // Display doctor name
-                          Text(item['time'] ?? 'N/A'),
+                          Text(formattedDate),
                         ],
                       );
                     }
