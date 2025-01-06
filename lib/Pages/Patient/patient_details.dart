@@ -55,6 +55,16 @@ class _PatientDetailsState extends State<PatientDetails> {
     }
   }
 
+  void _showSuccess(String message) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor: const Color.fromRGBO(33, 158, 80, 1),
+        ),
+      );
+    }
+  }
   String _formatDate(String dateStr) {
     if (dateStr.isEmpty) return 'N/A';
     
@@ -314,6 +324,7 @@ class _PatientDetailsState extends State<PatientDetails> {
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
+                      color: Colors.white
                     ),
                   ),
                 ),
@@ -454,7 +465,7 @@ class _PatientDetailsState extends State<PatientDetails> {
         'description': description,
         'time': Timestamp.now(),
       });
-      _showError('Record saved successfully.');
+      _showSuccess('Record saved successfully.');
       Navigator.pop(context); 
       setState(() {
         _fetchRecords(patientEmail);
@@ -627,16 +638,22 @@ class _PatientDetailsState extends State<PatientDetails> {
                         },
                       ),
                       trailing: (sessionEmail == item['doctorEmail'])
-                          ? TextButton(
-                              onPressed: () {
-                                _showAddMedicalRecordsModal(context, record: item);
-                              },
-                              child: const Text(
-                                'View',
-                                style: TextStyle(
-                                  color: Color.fromRGBO(33, 158, 80, 1),
+                          ? Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  icon: const Icon(Icons.edit, color: Colors.grey),
+                                  onPressed: () {
+                                    _showAddMedicalRecordsModal(context, record: item);
+                                  },
                                 ),
-                              ),
+                                IconButton(
+                                  icon: const Icon(Icons.delete, color: Colors.red),
+                                  onPressed: () {
+                                    
+                                  },
+                                ),
+                              ],
                             )
                           : null,
                     ),
