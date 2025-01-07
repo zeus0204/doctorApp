@@ -17,12 +17,13 @@ class Dashboard extends StatefulWidget {
   State<Dashboard> createState() => _DashboardState();
 }
 
-class _DashboardState extends State<Dashboard> {
+class _DashboardState extends State<Dashboard> with SingleTickerProviderStateMixin {
   List<Map<String, dynamic>>? _medicalHistory = [];
   List<Map<String, dynamic>> _patients = []; // Add this for storing patient info
   String? _fullName;
   String? _email;
   bool _isLoading = false;
+  late AnimationController _animationController;
 
   final Map<String, dynamic> user = {
     'name': '',
@@ -33,7 +34,18 @@ class _DashboardState extends State<Dashboard> {
     super.initState();  
     _loadDoctorData();
     _loadPatients();
-    _loadUserData();  
+    _loadUserData();
+
+    _animationController = AnimationController(
+      duration: const Duration(seconds: 1, milliseconds: 500), // 1.5 seconds duration
+      vsync: this,
+    );
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose(); // Dispose the controller when not needed
+    super.dispose();
   }
 
   void _onButtonPressed() {
@@ -41,11 +53,13 @@ class _DashboardState extends State<Dashboard> {
       _isLoading = true;
     });
 
+    _animationController.repeat();
     Timer(Duration(seconds: 1, milliseconds: 500), () {
       setState(() {
         _isLoading = false;
       });
       _showSuccessMessage();
+      _animationController.stop();
     });
   }
   
@@ -270,22 +284,21 @@ class _DashboardState extends State<Dashboard> {
                       margin: EdgeInsets.only(right: size.width * 0.05),
                       decoration: BoxDecoration(
                         color: Colors.white,
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(50),
                       ),
                       child: SizedBox(
-                        width: 48, // Fixed width
-                        height: 48, // Fixed height
+                        width: 32, // Fixed width
+                        height: 32, // Fixed height
                         child: IconButton(
-                          iconSize: 24, // Ensures icon size doesn't change
+                          iconSize: 15, // Ensures icon size doesn't change
                           padding: EdgeInsets.zero, // Removes extra padding
-                          icon: _isLoading
-                              ? const CircularProgressIndicator(
-                                  valueColor: AlwaysStoppedAnimation<Color>(
-                                    Color.fromRGBO(33, 158, 80, 1),
-                                  ),
-                                  strokeWidth: 2.0,
-                                )
-                              : const Icon(Icons.sync, color: Color.fromRGBO(33, 158, 80, 1)),
+                          icon: RotationTransition(
+                            turns: _animationController,
+                            child: const Icon(
+                              Icons.sync,
+                              color: Color.fromRGBO(33, 158, 80, 1),
+                            ),
+                          ),
                           onPressed: _isLoading ? null : _onButtonPressed,
                         ),
                       ),
