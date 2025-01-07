@@ -22,6 +22,7 @@ class _EditProfileState extends State<EditProfile> {
   String? _practingTenure;
   String? _dateOfBirth;
   File? _imageFile;
+  bool _isLoading = false;
 
   final _fullNameController = TextEditingController();
   final _addressController = TextEditingController();
@@ -102,6 +103,9 @@ class _EditProfileState extends State<EditProfile> {
     if (_formKey.currentState!.validate()) {
       _formKey.currentState!.save();
       try {
+        setState(() {
+          _isLoading = true;
+        });
         String? email = await SessionManager.getUserSession();
         if (email != null) {
           Map<String, dynamic>? userData = await DBHelper().getDoctorByEmail(email);
@@ -134,6 +138,12 @@ class _EditProfileState extends State<EditProfile> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error: $e')),
         );
+      } finally {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
       }
     }
   }
@@ -405,7 +415,7 @@ class _EditProfileState extends State<EditProfile> {
                 ),
               Center(
                 child: ElevatedButton(
-                  onPressed: _saveProfile,
+                  onPressed: _isLoading ? null : _saveProfile,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color.fromRGBO(33, 158, 80, 1),
                     padding: const EdgeInsets.symmetric(
@@ -414,8 +424,21 @@ class _EditProfileState extends State<EditProfile> {
                       borderRadius: BorderRadius.circular(10),
                     ),
                   ),
-                  child: const Text('Save Changes',
-                      style: TextStyle(color: Colors.white)),
+                  child: SizedBox(
+                    width: 150, // Set a fixed width
+                    height: 24, // Set a fixed height to maintain size
+                    child: Center(
+                      child: _isLoading
+                          ? const CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            )
+                          : const Text(
+                              'Save Changes',
+                              style: TextStyle(color: Colors.white),
+                            ),
+                    ),
+                  ),
                 ),
               ),
             ],

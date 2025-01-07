@@ -1,5 +1,6 @@
+import 'dart:async';
+
 import 'package:doctor_app/Pages/Home/ScanQR.dart';
-import 'package:doctor_app/Pages/Patient/patient_details.dart';
 import 'package:doctor_app/data/db_helper.dart';
 import 'package:doctor_app/data/session.dart';
 import 'package:doctor_app/models/schedule.dart';
@@ -8,7 +9,6 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart'; // Add this import
-import 'package:barcode_scan2/barcode_scan2.dart';
 
 class Dashboard extends StatefulWidget {
   const Dashboard({super.key});
@@ -22,6 +22,8 @@ class _DashboardState extends State<Dashboard> {
   List<Map<String, dynamic>> _patients = []; // Add this for storing patient info
   String? _fullName;
   String? _email;
+  bool _isLoading = false;
+
   final Map<String, dynamic> user = {
     'name': '',
     'age': 29,
@@ -32,7 +34,29 @@ class _DashboardState extends State<Dashboard> {
     _loadDoctorData();
     _loadPatients();
     _loadUserData();  
-  } 
+  }
+
+  void _onButtonPressed() {
+    setState(() {
+      _isLoading = true;
+    });
+
+    Timer(Duration(seconds: 1, milliseconds: 500), () {
+      setState(() {
+        _isLoading = false;
+      });
+      _showSuccessMessage();
+    });
+  }
+  
+  void _showSuccessMessage() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Sync completed successfully!'),
+        backgroundColor: Colors.green,
+      ),
+    );
+  }
 
   Future<void> _loadDoctorData() async {
     try {
@@ -248,9 +272,22 @@ class _DashboardState extends State<Dashboard> {
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: IconButton(
-                        icon: const Icon(Icons.notifications, color: Color.fromRGBO(33, 158, 80, 1)),
-                        onPressed: () {},
+                      child: SizedBox(
+                        width: 48, // Fixed width
+                        height: 48, // Fixed height
+                        child: IconButton(
+                          iconSize: 24, // Ensures icon size doesn't change
+                          padding: EdgeInsets.zero, // Removes extra padding
+                          icon: _isLoading
+                              ? const CircularProgressIndicator(
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    Color.fromRGBO(33, 158, 80, 1),
+                                  ),
+                                  strokeWidth: 2.0,
+                                )
+                              : const Icon(Icons.sync, color: Color.fromRGBO(33, 158, 80, 1)),
+                          onPressed: _isLoading ? null : _onButtonPressed,
+                        ),
                       ),
                     ),
                   ],
