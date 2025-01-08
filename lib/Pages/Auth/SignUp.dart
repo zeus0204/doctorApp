@@ -31,7 +31,7 @@ class _SignupState extends State<Signup> {
 
     try {
       _signupFormKey.currentState!.save();
-      UserCredential userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+      await FirebaseAuth.instance.createUserWithEmailAndPassword(
         email: _email!,
         password: _password!,
       );

@@ -14,9 +14,6 @@ class Calendar extends StatefulWidget {
 
 class _CalendarState extends State<Calendar> {
   List<Map<String, dynamic>> patients = [];
-  final DBHelper _dbHelper = DBHelper();
-  bool _isDeleting = false;
-  String? _deletingAppointmentId;
 
   @override
   void initState() {
@@ -213,10 +210,7 @@ class _CalendarState extends State<Calendar> {
                               IconButton(
                                 icon: const Icon(Icons.delete, color: Colors.red),
                                 onPressed: () async {
-                                  setState(() {
-                                    _isDeleting = true;
-                                    _deletingAppointmentId = appointment['id'];
-                                  });
+                                  
                                   try {
                                     await FirebaseFirestore.instance
                                         .collection('appointments')
@@ -232,10 +226,7 @@ class _CalendarState extends State<Calendar> {
                                       SnackBar(content: Text('Error deleting appointment: $e')),
                                     );
                                   } finally {
-                                    setState(() {
-                                      _isDeleting = false;
-                                      _deletingAppointmentId = null;
-                                    });
+                                    
                                   }
                                 },
                               ),
