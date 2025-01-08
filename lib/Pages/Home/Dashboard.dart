@@ -188,12 +188,6 @@ class _DashboardState extends State<Dashboard> with SingleTickerProviderStateMix
       );
     }
   }
-  final List<Map<String, String>> doctors = [
-    {'name': 'Patient 1', 'updated_history': 'Last Updated: 2h ago', 'avatar': 'assets/patient1.png'},
-    {'name': 'Patient 2', 'updated_history': 'Last Updated: 3h ago', 'avatar': 'assets/patient2.png'},
-    {'name': 'Patient 3', 'updated_history': 'Last Updated: 5h ago', 'avatar': 'assets/patient3.png'},
-    {'name': 'Patient 4', 'updated_history': 'Last Updated: 7h ago', 'avatar': 'assets/patient4.png'},
-  ];
 
   Stream<List<Schedule>> _getSchedulesStream() async* {
     try {
