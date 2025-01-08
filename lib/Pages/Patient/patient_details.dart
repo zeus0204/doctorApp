@@ -650,7 +650,11 @@ class _PatientDetailsState extends State<PatientDetails> {
           future: SessionManager.getUserSession(),
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
-              return const CircularProgressIndicator(); // Show loading indicator while waiting
+              return const Center(
+                    child: CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white), // Set loading indicator color to white
+                    ),
+                  ); // Show loading indicator while waiting
             } else if (snapshot.hasError || !snapshot.hasData) {
               return Text('Error: ${snapshot.error ?? "No user session available"}');
             } else {
@@ -681,7 +685,11 @@ class _PatientDetailsState extends State<PatientDetails> {
                         future: getDoctornameByEmail(item['doctorEmail']),
                         builder: (context, snapshot) {
                           if (snapshot.connectionState == ConnectionState.waiting) {
-                            return const CircularProgressIndicator();
+                            return const Center(
+                              child: CircularProgressIndicator(
+                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white), // Set loading indicator color to white
+                              ),
+                            );
                           } else if (snapshot.hasError) {
                             return Text('Error: ${snapshot.error}');
                           } else {

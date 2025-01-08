@@ -132,7 +132,11 @@ class _CalendarState extends State<Calendar> {
                 stream: _getAppointmentsStream(),
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
+                    return const Center(
+                    child: CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white), // Set loading indicator color to white
+                    ),
+                  );
                   }
 
                   if (snapshot.hasError) {
@@ -171,10 +175,11 @@ class _CalendarState extends State<Calendar> {
                       final appointment = appointments[index];
                       final date = DateTime.tryParse(appointment['day'] ?? '');
                       return Card(
+                        margin: const EdgeInsets.symmetric(vertical: 8),
                         elevation: 2,
-                        margin: const EdgeInsets.only(bottom: 16),
+                        color: Colors.white,
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(10),
                         ),
                         child: ListTile(
                           contentPadding: const EdgeInsets.all(16),
