@@ -180,38 +180,64 @@ class _PatientDetailsState extends State<PatientDetails> {
     }
   }
 
-  Future<void> saveMedicalRecord(String? doctorEmail, String patientEmail, String title, String subtitle, String description, {String? recordId}) async {
+  Future<void> saveMedicalRecord(
+    String? doctorEmail,
+    String patientEmail,
+    String title,
+    String subtitle,
+    String description, {
+    String? recordId,
+  }) async {
+    // Locally add or update the record in _records
+    Map<String, dynamic> recordData = {
+      'doctorEmail': doctorEmail,
+      'patientEmail': patientEmail,
+      'title': title,
+      'subtitle': subtitle,
+      'description': description,
+      'time': Timestamp.now(), // Or DateTime.now() if simulating offline
+      // Add other necessary fields like 'id' for temporary tracking
+    };
+
+    if (recordId != null) {
+      // Update existing record in _records list (locally)
+      int index = _records.indexWhere((record) => record['id'] == recordId);
+      if (index != -1) {
+        _records[index] = recordData;
+      }
+    } else {
+      // Add new record to _records list (locally)
+      _records.add(recordData);
+    }
+
+    // Ensure UI updates to reflect new card addition
+    setState(() {});
+
+    // Dismiss the modal
+    Navigator.pop(context);
+
+    // Attempt to save to Firestore
     try {
       if (recordId != null) {
-        // Update existing record
-        await FirebaseFirestore.instance.collection('records').doc(recordId).update({
-          'title': title,
-          'subtitle': subtitle,
-          'description': description,
-          'updatedAt': Timestamp.now(),
-        });
+        // Update the database record
+        await FirebaseFirestore.instance
+            .collection('records')
+            .doc(recordId)
+            .update({...recordData, 'updatedAt': Timestamp.now()});
         _showSuccess('Record updated successfully.');
       } else {
-        // Create new record
-        await FirebaseFirestore.instance.collection('records').add({
-          'doctorEmail': doctorEmail,
-          'patientEmail': patientEmail,
-          'title': title,
-          'subtitle': subtitle,
-          'description': description,
-          'time': Timestamp.now(),
-        });
-        _showSuccess('Record saved successfully.');
+        // Create new record in the database
+        DocumentReference docRef = await FirebaseFirestore.instance
+            .collection('records')
+            .add(recordData);
+        // Update local list with newly assigned document ID
+        recordData['id'] = docRef.id;
       }
-      Navigator.pop(context);
-      setState(() {
-        _fetchRecords(patientEmail);
-      });
     } catch (e) {
-      print('Error saving/updating record: $e');
       _showError('Failed to save/update record: ${e.toString()}');
     }
   }
+
 
   Future<void> _deleteRecord(String recordId, String patientEmail) async {
     try {

@@ -109,6 +109,10 @@ class _EditProfileState extends State<EditProfile> {
         String? email = await SessionManager.getUserSession();
         if (email != null) {
           Map<String, dynamic>? userData = await DBHelper().getDoctorByEmail(email);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Profile saved successfully')),
+          );
+          Navigator.pop(context, true);
           if (userData != null) {
 
             await DBHelper().updateDoctors(
@@ -131,7 +135,6 @@ class _EditProfileState extends State<EditProfile> {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('Profile updated successfully!')),
             );
-            Navigator.pop(context, true);
           }
         }
       } catch (e) {
@@ -294,6 +297,17 @@ class _EditProfileState extends State<EditProfile> {
                       'name': name,
                       'location': location,
                     };
+                    setState(() {
+                      if (record == null) {
+                        _hospitals.add(hospital); // Reflect change immediately
+                      } else {
+                        int index = _hospitals.indexWhere((r) => r['name'] == record['name']);
+                        if (index != -1) {
+                          _hospitals[index] = hospital; // Update the existing record
+                        }
+                      }
+                    });
+                    Navigator.pop(context); 
                     if (record == null) {
                       // Add new medical history
                       await DBHelper().insertHospital(email, hospital);
@@ -301,7 +315,6 @@ class _EditProfileState extends State<EditProfile> {
                       // Update existing medical history
                       await DBHelper().updateHospital(email, record['name'] ,hospital);
                     }
-                    Navigator.pop(context); 
                     setState(() {
                       _loadAvaiableHospital(email); 
                     });

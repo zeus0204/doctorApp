@@ -19,7 +19,6 @@ class Dashboard extends StatefulWidget {
 
 class _DashboardState extends State<Dashboard> with SingleTickerProviderStateMixin {
   List<Map<String, dynamic>> _patients = []; // Add this for storing patient info
-  String? _email;
   bool _isLoading = false;
   late AnimationController _animationController;
   List<Map<String, dynamic>> recentPatients = [];
@@ -35,7 +34,7 @@ class _DashboardState extends State<Dashboard> with SingleTickerProviderStateMix
     _loadDoctorData();
     _loadPatients();
     _loadUserData();
-    getLatestRecordsByDoctorEmail(_email);
+    getLatestRecordsByDoctorEmail();
     _animationController = AnimationController(
       duration: const Duration(seconds: 1, milliseconds: 500), // 1.5 seconds duration
       vsync: this,
@@ -48,26 +47,22 @@ class _DashboardState extends State<Dashboard> with SingleTickerProviderStateMix
     super.dispose();
   }
 
-  Future<void> getLatestRecordsByDoctorEmail(String? doctorEmail) async {
-
+  Future<void> getLatestRecordsByDoctorEmail() async {
+    String? doctorEmail = await SessionManager.getUserSession();
     setState(() {
       _isFetchingRecords = true; // Start fetching
     });
 
     try {
-      // Step 1: Query records matching the given doctorEmail
       QuerySnapshot snapshot = await FirebaseFirestore.instance
           .collection('records')
           .where('doctorEmail', isEqualTo: doctorEmail)
           .get();
 
-      print("Number of records fetched: ${snapshot.docs.length}");
       if (snapshot.docs.isEmpty) {
         print("No records found for doctorEmail: $doctorEmail");
-        return;
       }
 
-      // Step 2: Process records to group by patientEmail and get the latest updatedAt
       Map<String, Map<String, dynamic>> latestRecords = {};
 
       for (var doc in snapshot.docs) {
@@ -75,37 +70,36 @@ class _DashboardState extends State<Dashboard> with SingleTickerProviderStateMix
         String? patientEmail = record['patientEmail'] as String?;
         Timestamp? updatedAt = record['time'] as Timestamp?;
 
-        // Skip records with null patientEmail or updatedAt
         if (patientEmail == null || updatedAt == null) {
-          print("Skipping record with missing data: $record");
           continue;
         }
 
-        // Check if this record is more recent than the stored one
-        if (!latestRecords.containsKey(patientEmail) || 
+        if (!latestRecords.containsKey(patientEmail) ||
             updatedAt.toDate().isAfter(
                 (latestRecords[patientEmail]!['time'] as Timestamp).toDate())) {
           latestRecords[patientEmail] = record;
         }
       }
 
-      // Debug latest records
       List<Map<String, dynamic>> sortedRecentPatients = latestRecords.values.toList();
       sortedRecentPatients.sort((a, b) {
         Timestamp timeA = a['time'] as Timestamp;
         Timestamp timeB = b['time'] as Timestamp;
-        return timeB.compareTo(timeA); // Latest time first
+        return timeB.compareTo(timeA);
       });
 
-      // Step 3: Update state with the filtered records
       setState(() {
         recentPatients = sortedRecentPatients;
-        _isFetchingRecords = false;
+        _isFetchingRecords = false; // Stop fetching
       });
     } catch (e) {
       print('Error fetching records: $e');
+      setState(() {
+        _isFetchingRecords = false; // Stop fetching on error
+      });
     }
   }
+
 
 
 
@@ -140,7 +134,6 @@ class _DashboardState extends State<Dashboard> with SingleTickerProviderStateMix
         final doctorData = await DBHelper().getDoctorByEmail(email);
         if (doctorData != null && mounted) {
           setState(() {
-            _email = email;
             user['name'] = doctorData['fullName'];
           });
         }
@@ -409,10 +402,10 @@ class _DashboardState extends State<Dashboard> with SingleTickerProviderStateMix
             child: Padding(
               padding: const EdgeInsets.all(16.0),
               child: Text(
-                'No upcoming appointments',
+                'There is no appointment yet',
                 style: GoogleFonts.poppins(
                   fontSize: 16,
-                  color: Colors.grey,
+                  color: Colors.white,
                 ),
               ),
             ),
@@ -575,67 +568,83 @@ class _DashboardState extends State<Dashboard> with SingleTickerProviderStateMix
             Expanded(
               child: (_isFetchingRecords)
                   ? const Center(
-                    child: CircularProgressIndicator(
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white), // Set loading indicator color to white
-                    ),
-                  ) : ClipRRect(
-                borderRadius: BorderRadius.circular(10),
-                child: Container(
-                  color: Colors.white,
-                  child: ListView.builder(
-                    itemCount: recentPatients.length,
-                    itemBuilder: (context, index) {
-                      final patient = recentPatients[index];
-                      final email = patient['patientEmail'] ?? 'Unknown Email';
-                      final updatedAt = patient['time'] != null 
-                        ? DateFormat('dd/MM/yyyy hh:mm a').format((patient['time'] as Timestamp).toDate())
-                        : 'No Update Info';
+                      child: CircularProgressIndicator(
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white), // Set loading indicator color to white
+                      ),
+                    )
+                  : ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: Container(
+                        color: Colors.white,
+                        child: (recentPatients.isEmpty)
+                            ? Center(
+                                child: Padding(
+                                  padding: EdgeInsets.all(size.width * 0.08),
+                                  child: Text(
+                                    'There are no recent consultations',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 16,
+                                      color: Colors.grey,
+                                    ),
+                                    maxLines: 1, // Ensure the text stays in a single line
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              )
+                            : ListView.builder(
+                                itemCount: recentPatients.length,
+                                itemBuilder: (context, index) {
+                                  final patient = recentPatients[index];
+                                  final email = patient['patientEmail'] ?? 'Unknown Email';
+                                  final updatedAt = patient['time'] != null 
+                                    ? DateFormat('dd/MM/yyyy hh:mm a').format((patient['time'] as Timestamp).toDate())
+                                    : 'No Update Info';
 
-                      // Use FutureBuilder to handle asynchronous data fetching
-                      return FutureBuilder<String>(
-                        future: getPatientName(email),
-                        builder: (context, snapshot) {
-                          if (snapshot.connectionState == ConnectionState.waiting) {
-                            return const ListTile(
-                              leading: CircleAvatar(
-                                backgroundImage: AssetImage('assets/patient3.png'),
+                                  // Use FutureBuilder to handle asynchronous data fetching
+                                  return FutureBuilder<String>(
+                                    future: getPatientName(email),
+                                    builder: (context, snapshot) {
+                                      if (snapshot.connectionState == ConnectionState.waiting) {
+                                        return const ListTile(
+                                          leading: CircleAvatar(
+                                            backgroundImage: AssetImage('assets/patient3.png'),
+                                          ),
+                                          title: Text('Loading...'),
+                                          subtitle: Text('Please wait...'),
+                                          trailing: Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
+                                        );
+                                      } else if (snapshot.hasError) {
+                                        return ListTile(
+                                          leading: const CircleAvatar(
+                                            backgroundImage: AssetImage('assets/patient3.png'),
+                                          ),
+                                          title: const Text('Error loading name'),
+                                          subtitle: Text(updatedAt),
+                                          trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
+                                        );
+                                      } else {
+                                        return ListTile(
+                                          leading: const CircleAvatar(
+                                            backgroundImage: AssetImage('assets/patient3.png'),
+                                          ),
+                                          title: Text(
+                                            snapshot.data ?? 'Unknown Patient',
+                                            style: GoogleFonts.poppins(fontSize: size.width * 0.035),
+                                          ),
+                                          subtitle: Text(
+                                            updatedAt,
+                                            style: GoogleFonts.poppins(fontSize: size.width * 0.03),
+                                          ),
+                                          trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
+                                          onTap: () => _showPatientInfo(context, email),
+                                        );
+                                      }
+                                    },
+                                  );
+                                },
                               ),
-                              title: Text('Loading...'),
-                              subtitle: Text('Please wait...'),
-                              trailing: Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
-                            );
-                          } else if (snapshot.hasError) {
-                            return ListTile(
-                              leading: const CircleAvatar(
-                                backgroundImage: AssetImage('assets/patient3.png'),
-                              ),
-                              title: const Text('Error loading name'),
-                              subtitle: Text(updatedAt),
-                              trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
-                            );
-                          } else {
-                            return ListTile(
-                              leading: const CircleAvatar(
-                                backgroundImage: AssetImage('assets/patient3.png'),
-                              ),
-                              title: Text(
-                                snapshot.data ?? 'Unknown Patient',
-                                style: GoogleFonts.poppins(fontSize: size.width * 0.035),
-                              ),
-                              subtitle: Text(
-                                updatedAt,
-                                style: GoogleFonts.poppins(fontSize: size.width * 0.03),
-                              ),
-                              trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
-                              onTap: () => _showPatientInfo(context, email),
-                            );
-                          }
-                        },
-                      );
-                    },
-                  ),
-                ),
-              ),
+                      ),
+                    ),
             ),
             SizedBox(height: size.height * 0.03),
             Row(
@@ -682,5 +691,6 @@ class _DashboardState extends State<Dashboard> with SingleTickerProviderStateMix
       ),
     );
   }
+
 
 }

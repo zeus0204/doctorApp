@@ -476,7 +476,7 @@ class _AddAppointmentState extends State<AddAppointment> {
       );
       return;
     }
-    
+
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -488,7 +488,7 @@ class _AddAppointmentState extends State<AddAppointment> {
         );
       },
     );
-    
+
     try {
       final doctorEmail = await SessionManager.getUserSession();
       if (doctorEmail == null) {
@@ -504,40 +504,38 @@ class _AddAppointmentState extends State<AddAppointment> {
         'status': 'scheduled',
         'updatedAt': FieldValue.serverTimestamp(),
       };
-
-      if (widget.id == null) {
-        await FirebaseFirestore.instance
-            .collection('appointments')
-            .add(appointmentData);
-      } else {
-        await FirebaseFirestore.instance
-            .collection('appointments')
-            .doc(widget.id)
-            .update(appointmentData);
-      }
-      
       Navigator.pop(context); // Close loading dialog
-      
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(widget.id == null ? 'Appointment scheduled successfully' : 'Appointment updated successfully'),
           backgroundColor: const Color.fromRGBO(33, 158, 80, 1),
         ),
       );
-      
+
+      if (widget.id == null) {
+        await FirebaseFirestore.instance.collection('appointments').add(appointmentData);
+      } else {
+        await FirebaseFirestore.instance.collection('appointments').doc(widget.id).update(appointmentData);
+      }
+
       Navigator.pop(context, true);
-      
+
     } catch (e) {
       if (Navigator.canPop(context)) {
-        Navigator.pop(context);
+        Navigator.pop(context); // Ensure loading dialog is closed
       }
-      
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error ${widget.id == null ? 'scheduling' : 'updating'} appointment: $e'),
           backgroundColor: Colors.red,
         ),
       );
+
+      // Navigate back to the calendar page with a `false` result if needed
+      Navigator.pop(context, false);
     }
   }
+
 }
