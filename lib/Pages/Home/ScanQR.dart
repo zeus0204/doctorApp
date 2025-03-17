@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:barcode_scan2/barcode_scan2.dart';
 import 'package:doctor_app/Pages/Patient/patient_details.dart';
+import 'package:doctor_app/Pages/Home/home.dart';
 
 class ScanQR extends StatefulWidget {
   const ScanQR({super.key});
@@ -19,7 +20,7 @@ class _ScanQRState extends State<ScanQR> {
   void _scanQR() async {
     try {
       var result = await BarcodeScanner.scan(
-        options: ScanOptions(
+        options: const ScanOptions(
           strings: {
             'cancel': 'Cancel',
             'flash_on': 'Flash on',
@@ -27,10 +28,7 @@ class _ScanQRState extends State<ScanQR> {
           },
           restrictFormat: [BarcodeFormat.qr],
           useCamera: -1,
-          android: const AndroidOptions(
-            aspectTolerance: 0.00,
-            useAutoFocus: true,
-          ),
+          android: AndroidOptions(aspectTolerance: 0.00, useAutoFocus: true),
         ),
       );
 
@@ -44,21 +42,27 @@ class _ScanQRState extends State<ScanQR> {
         );
       } else {
         if (!mounted) return;
-        Navigator.pop(context);
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const Home(), // Navigate to HomePage
+          ),
+        );
       }
     } catch (e) {
       print('Error scanning QR code: $e');
       if (!mounted) return;
-      Navigator.pop(context);
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const Home(), // Navigate to HomePage on error
+        ),
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      body: Center(
-        child: CircularProgressIndicator(),
-      ),
-    );
+    return const Scaffold(body: Center(child: CircularProgressIndicator()));
   }
 }

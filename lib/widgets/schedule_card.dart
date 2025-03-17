@@ -34,48 +34,51 @@ class ScheduleCard extends StatelessWidget {
               showIndicator: true,
               indicatorMargin: 10,
             ),
-            items: schedules.map((schedule) {
-              return Builder(
-                builder: (BuildContext context) {
-                  return Container(
-                    width: MediaQuery.of(context).size.width,
-                    margin: EdgeInsets.symmetric(horizontal: size.width * 0.01),
-                    padding: EdgeInsets.all(size.width * 0.02),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.grey.withOpacity(0.1),
-                          spreadRadius: 1,
-                          blurRadius: 1,
-                          offset: const Offset(1, 1),
+            items:
+                schedules.map((schedule) {
+                  return Builder(
+                    builder: (BuildContext context) {
+                      return Container(
+                        width: MediaQuery.of(context).size.width,
+                        margin: EdgeInsets.symmetric(
+                          horizontal: size.width * 0.01,
                         ),
-                      ],
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Flexible(
-                          child: SingleChildScrollView(
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                _buildPatientInfo(schedule),
-                                const SizedBox(height: 20),
-                                _buildScheduleInfo(schedule),
-                                const SizedBox(height: 20),
-                              ],
+                        padding: EdgeInsets.all(size.width * 0.02),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(20),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.grey.withOpacity(0.1),
+                              spreadRadius: 1,
+                              blurRadius: 1,
+                              offset: const Offset(1, 1),
                             ),
-                          ),
+                          ],
                         ),
-                        _buildActionButtons(context),
-                      ],
-                    ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Flexible(
+                              child: SingleChildScrollView(
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    _buildPatientInfo(schedule),
+                                    const SizedBox(height: 20),
+                                    _buildScheduleInfo(schedule),
+                                    const SizedBox(height: 20),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            _buildActionButtons(context),
+                          ],
+                        ),
+                      );
+                    },
                   );
-                },
-              );
-            }).toList(),
+                }).toList(),
           ),
         ),
       ],
@@ -86,7 +89,8 @@ class ScheduleCard extends StatelessWidget {
     return Row(
       children: [
         CircleAvatar(
-          backgroundImage: NetworkImage(schedule.avatar),
+          // backgroundImage: NetworkImage(schedule.avatar),
+          backgroundImage: AssetImage('assets/images/avatar.png'),
           radius: size.width * 0.06,
         ),
         SizedBox(width: size.width * 0.04),
@@ -155,11 +159,7 @@ class ScheduleCard extends StatelessWidget {
     return Expanded(
       child: Row(
         children: [
-          Icon(
-            icon,
-            size: 16,
-            color: AppColors.primaryColor,
-          ),
+          Icon(icon, size: 16, color: AppColors.primaryColor),
           SizedBox(width: size.width * 0.01),
           Flexible(
             child: Text(
@@ -190,10 +190,11 @@ class ScheduleCard extends StatelessWidget {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => AddAppointment(
-                      id: appointmentId,
-                      patients: patients,
-                    ),
+                    builder:
+                        (context) => AddAppointment(
+                          id: appointmentId,
+                          patients: patients,
+                        ),
                   ),
                 );
               },

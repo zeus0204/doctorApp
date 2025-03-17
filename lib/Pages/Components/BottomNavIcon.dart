@@ -1,8 +1,8 @@
-import 'package:doctor_app/Pages/Home/Settings.dart';
+import 'package:doctor_app/Pages/Home/scanqr_dashboard.dart';
+import 'package:doctor_app/Pages/Home/settings.dart';
 import 'package:flutter/material.dart';
-import '../Home/Dashboard.dart';
-import '../Home/Calendar.dart';
-import '../Home/ScanQR.dart';
+import '../Home/dashboard.dart';
+import '../Home/calendar.dart';
 
 class BottomNavIcons extends StatefulWidget {
   const BottomNavIcons({super.key});
@@ -17,8 +17,8 @@ class _BottomNavIconState extends State<BottomNavIcons> {
   final List<Widget> _pages = [
     const Dashboard(),
     Calendar(),
-    ScanQR(),
-    SettingsPage()
+    const ScanQRDashboardPage(),
+    const SettingsPage(),
   ];
 
   void _onItemTapped(int index) {
@@ -52,13 +52,19 @@ class _BottomNavIconState extends State<BottomNavIcons> {
     return BottomNavigationBarItem(
       icon: Container(
         decoration: BoxDecoration(
-          color: isSelected ? const Color.fromRGBO(33, 158, 80, 1) : Colors.transparent,
+          color:
+              isSelected
+                  ? const Color.fromRGBO(33, 158, 80, 1)
+                  : Colors.transparent,
           borderRadius: BorderRadius.circular(8), // Rounded corners
         ),
         padding: const EdgeInsets.all(8), // Padding around the icon
         child: Icon(
           icon,
-          color: isSelected ? Colors.white : const Color.fromRGBO(33, 158, 80, 1), // Icon color
+          color:
+              isSelected
+                  ? Colors.white
+                  : const Color.fromRGBO(33, 158, 80, 1), // Icon color
         ),
       ),
       label: '', // Empty label to match your requirement

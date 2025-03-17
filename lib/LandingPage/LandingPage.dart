@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../Pages/Auth/SignIn.dart'; // Ensure the import path is correct
-import '../Pages/Home/Home.dart'; // Ensure the import path is correct
+import '../Pages/Auth/signIn.dart'; // Ensure the import path is correct
+import '../Pages/Home/home.dart'; // Ensure the import path is correct
 import '../data/session.dart'; // Import the session manager
 
 class LandingPage extends StatefulWidget {
@@ -41,14 +41,14 @@ class _LandingPage extends State<LandingPage> {
         const curve = Curves.easeIn;
 
         // Define the animation
-        var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
+        var tween = Tween(
+          begin: begin,
+          end: end,
+        ).chain(CurveTween(curve: curve));
         var opacityAnimation = animation.drive(tween);
 
         // Fade transition
-        return FadeTransition(
-          opacity: opacityAnimation,
-          child: child,
-        );
+        return FadeTransition(opacity: opacityAnimation, child: child);
       },
     );
   }
@@ -79,7 +79,12 @@ class _LandingPage extends State<LandingPage> {
                         fontWeight: FontWeight.bold, // Font weight
                         height: 1.5, // Line height
                         letterSpacing: -2.2, // Letter spacing
-                        color: const Color.fromARGB(255, 44, 68, 34), // Text color
+                        color: const Color.fromARGB(
+                          255,
+                          44,
+                          68,
+                          34,
+                        ), // Text color
                       ),
                     ),
                   ],

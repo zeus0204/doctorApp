@@ -1,0 +1,2 @@
+C:/Users/Admin/Music/doctorApp/android/app/.cxx/RelWithDebInfo/5n3bb684/armeabi-v7a/CMakeFiles/edit_cache.dir
+C:/Users/Admin/Music/doctorApp/android/app/.cxx/RelWithDebInfo/5n3bb684/armeabi-v7a/CMakeFiles/rebuild_cache.dir

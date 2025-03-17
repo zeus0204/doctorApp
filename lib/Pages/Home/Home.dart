@@ -1,8 +1,9 @@
+import 'package:doctor_app/Pages/Home/ScanQR_dashboard.dart';
+
 import 'Appointment/appointment_calendar.dart';
-import 'ScanQR.dart';
 import 'package:flutter/material.dart';
-import 'Dashboard.dart';
-import 'Settings.dart';
+import './dashboard.dart';
+import './settings.dart';
 
 class Home extends StatefulWidget {
   const Home({super.key});
@@ -16,8 +17,8 @@ class _HomeState extends State<Home> {
   final List<Widget> _screens = [
     const Dashboard(),
     const Calendar(),
-    ScanQR(),
-    SettingsPage()
+    const ScanQRDashboardPage(),
+    const SettingsPage(),
   ];
 
   @override
@@ -58,7 +59,10 @@ class _HomeState extends State<Home> {
   Widget _buildIcon(IconData icon, bool isSelected) {
     return Container(
       decoration: BoxDecoration(
-        color: isSelected ? const Color.fromRGBO(33, 158, 80, 1) : Colors.transparent,
+        color:
+            isSelected
+                ? const Color.fromRGBO(33, 158, 80, 1)
+                : Colors.transparent,
         borderRadius: BorderRadius.circular(8), // Rounded corners
       ),
       padding: const EdgeInsets.all(10), // Adjust padding for better appearance

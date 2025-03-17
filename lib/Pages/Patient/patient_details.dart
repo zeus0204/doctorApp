@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:doctor_app/Pages/Home/home.dart';
 import 'package:doctor_app/data/db_helper.dart';
 import 'package:doctor_app/data/session.dart';
 import 'package:flutter/material.dart';
@@ -18,7 +19,7 @@ class _PatientDetailsState extends State<PatientDetails> {
   Map<String, dynamic> patientData = {};
   String? errorMessage;
   List<Map<String, dynamic>> _records = [];
-  
+
   @override
   void initState() {
     super.initState();
@@ -28,17 +29,19 @@ class _PatientDetailsState extends State<PatientDetails> {
   Future<List<Map<String, dynamic>>> _fetchRecords(String? email) async {
     List<Map<String, dynamic>> records = [];
     try {
-      QuerySnapshot querySnapshot = await FirebaseFirestore.instance
-          .collection('records')
-          .where('patientEmail', isEqualTo: email)
-          .get();
+      QuerySnapshot querySnapshot =
+          await FirebaseFirestore.instance
+              .collection('records')
+              .where('patientEmail', isEqualTo: email)
+              .get();
 
-      records = querySnapshot.docs.map((doc) {
-        Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-        data['id'] = doc.id; // Add document ID to the record data
-        return data;
-      }).toList();
-      
+      records =
+          querySnapshot.docs.map((doc) {
+            Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+            data['id'] = doc.id; // Add document ID to the record data
+            return data;
+          }).toList();
+
       setState(() {
         _records = records;
       });
@@ -51,10 +54,7 @@ class _PatientDetailsState extends State<PatientDetails> {
   void _showError(String message) {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(message),
-          backgroundColor: Colors.red,
-        ),
+        SnackBar(content: Text(message), backgroundColor: Colors.red),
       );
     }
   }
@@ -69,13 +69,14 @@ class _PatientDetailsState extends State<PatientDetails> {
       );
     }
   }
+
   String _formatDate(String dateStr) {
     if (dateStr.isEmpty) return 'N/A';
-    
+
     try {
       // Parse the datetime string
       final DateTime date = DateTime.parse(dateStr);
-      
+
       // Format it into the desired format (e.g., "DD/MM/YYYY")
       return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
     } catch (e) {
@@ -87,11 +88,11 @@ class _PatientDetailsState extends State<PatientDetails> {
   Future<void> _decodeQRData() async {
     try {
       String rawData = widget.qrData;
-      print(rawData);
       // Split the data based on lines or entries
       List<String> entries = rawData.split('\n');
 
       Map<String, dynamic> result = {};
+      DateTime? qrCurrentTime;
 
       for (String entry in entries) {
         if (entry.isNotEmpty) {
@@ -103,6 +104,10 @@ class _PatientDetailsState extends State<PatientDetails> {
           if (index != -1) {
             String key = entry.substring(0, index).trim();
             String value = entry.substring(index + 2).trim();
+
+            if (key == 'currentTime') {
+              qrCurrentTime = DateTime.parse(value);
+            }
 
             if ((key == 'medicalHistory') &&
                 value.startsWith('[') &&
@@ -131,8 +136,9 @@ class _PatientDetailsState extends State<PatientDetails> {
                         final match = secondsRegEx.firstMatch(itemValue);
                         if (match != null) {
                           int seconds = int.parse(match.group(1)!);
-                          DateTime date =
-                              DateTime.fromMillisecondsSinceEpoch(seconds * 1000);
+                          DateTime date = DateTime.fromMillisecondsSinceEpoch(
+                            seconds * 1000,
+                          );
                           itemValue = DateFormat('dd/MM/yyyy').format(date);
                         }
                       }
@@ -151,9 +157,13 @@ class _PatientDetailsState extends State<PatientDetails> {
         }
       }
 
+      if (qrCurrentTime != null &&
+          DateTime.now().difference(qrCurrentTime).inMinutes > 10) {
+        _handleExpiredQRCode();
+        return; // Skip fetching records
+      }
       // Fetch records after decoding QR data
-      List<Map<String, dynamic>> records =
-          await _fetchRecords(result['email']);
+      List<Map<String, dynamic>> records = await _fetchRecords(result['email']);
 
       // Set state after all async work is complete
       if (mounted) {
@@ -178,6 +188,40 @@ class _PatientDetailsState extends State<PatientDetails> {
         });
       }
     }
+  }
+
+  void _handleExpiredQRCode() {
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false, // Prevents dismissing by tapping outside
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text(
+            'QR Code Expired',
+            style: TextStyle(color: Color.fromRGBO(33, 158, 80, 1)),
+          ),
+          content: const Text(
+            'This QR code has expired. Please use a new QR code.',
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: const Text(
+                'OK',
+                style: TextStyle(color: Color.fromRGBO(33, 158, 80, 1)),
+              ),
+              onPressed: () {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const Home(), // Navigate to HomePage
+                  ),
+                );
+              },
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Future<void> saveMedicalRecord(
@@ -238,32 +282,33 @@ class _PatientDetailsState extends State<PatientDetails> {
     }
   }
 
-
   Future<void> _deleteRecord(String recordId, String patientEmail) async {
     try {
       // Show confirmation dialog
-      bool confirmDelete = await showDialog(
-        context: context,
-        builder: (BuildContext context) {
-          return AlertDialog(
-            title: const Text('Confirm Delete'),
-            content: const Text('Are you sure you want to delete this record?'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('Cancel'),
-              ),
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(true),
-                style: TextButton.styleFrom(
-                  foregroundColor: Colors.red,
+      bool confirmDelete =
+          await showDialog(
+            context: context,
+            builder: (BuildContext context) {
+              return AlertDialog(
+                title: const Text('Confirm Delete'),
+                content: const Text(
+                  'Are you sure you want to delete this record?',
                 ),
-                child: const Text('Delete'),
-              ),
-            ],
-          );
-        },
-      ) ?? false;
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(false),
+                    child: const Text('Cancel'),
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(true),
+                    style: TextButton.styleFrom(foregroundColor: Colors.red),
+                    child: const Text('Delete'),
+                  ),
+                ],
+              );
+            },
+          ) ??
+          false;
 
       if (!confirmDelete) return;
 
@@ -305,7 +350,10 @@ class _PatientDetailsState extends State<PatientDetails> {
             shape: BoxShape.circle,
           ),
           child: IconButton(
-            icon: const Icon(Icons.arrow_back, color: Color.fromRGBO(33, 158, 80, 1)),
+            icon: const Icon(
+              Icons.arrow_back,
+              color: Color.fromRGBO(33, 158, 80, 1),
+            ),
             onPressed: () => Navigator.pop(context),
           ),
         ),
@@ -391,9 +439,18 @@ class _PatientDetailsState extends State<PatientDetails> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: [
-                        _buildInfoItem('Contact:', patientData['contact'] ?? 'N/A'),
-                        _buildInfoItem('Birthday:', _formatDate(patientData['birthday'] ?? '')),
-                        _buildInfoItem('Phone:', patientData['phoneNumber'] ?? 'N/A'),
+                        _buildInfoItem(
+                          'Contact:',
+                          patientData['contact'] ?? 'N/A',
+                        ),
+                        _buildInfoItem(
+                          'Birthday:',
+                          _formatDate(patientData['birthday'] ?? ''),
+                        ),
+                        _buildInfoItem(
+                          'Phone:',
+                          patientData['phoneNumber'] ?? 'N/A',
+                        ),
                       ],
                     ),
                   ],
@@ -402,13 +459,12 @@ class _PatientDetailsState extends State<PatientDetails> {
               const SizedBox(height: 24),
               _buildMedicalHistorySection(
                 'Medical History',
-                (patientData['medicalHistory'] as List<Map<String, dynamic>>?) ?? [],
+                (patientData['medicalHistory']
+                        as List<Map<String, dynamic>>?) ??
+                    [],
               ),
               const SizedBox(height: 24),
-              _buildMedicalRecordSection(
-                    'Medical Records',
-                    _records,
-                  ),
+              _buildMedicalRecordSection('Medical Records', _records),
               const SizedBox(height: 24),
               SizedBox(
                 width: double.infinity,
@@ -428,7 +484,7 @@ class _PatientDetailsState extends State<PatientDetails> {
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
-                      color: Colors.white
+                      color: Colors.white,
                     ),
                   ),
                 ),
@@ -439,7 +495,11 @@ class _PatientDetailsState extends State<PatientDetails> {
       ),
     );
   }
-  void _showAddMedicalRecordsModal(BuildContext context, {Map<String, dynamic>? record}) {
+
+  void _showAddMedicalRecordsModal(
+    BuildContext context, {
+    Map<String, dynamic>? record,
+  }) {
     final TextEditingController titleController = TextEditingController();
     final TextEditingController subtitleController = TextEditingController();
     final TextEditingController descriptionController = TextEditingController();
@@ -455,75 +515,108 @@ class _PatientDetailsState extends State<PatientDetails> {
       builder: (BuildContext context) {
         return AlertDialog(
           backgroundColor: Colors.white,
-          title: Text(record == null ? "Add Medical Record" : "Edit Medical Record", style: const TextStyle(color: Color.fromRGBO(33, 158, 80, 1), fontSize: 20),),
+          title: Text(
+            record == null ? "Add Medical Record" : "Edit Medical Record",
+            style: const TextStyle(
+              color: Color.fromRGBO(33, 158, 80, 1),
+              fontSize: 20,
+            ),
+          ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
                 controller: titleController,
-                decoration: InputDecoration(  
-                  labelText: 'Title',  
-                  labelStyle: const TextStyle(color: Color.fromRGBO(10, 62, 29, 1)),  
-                  border: OutlineInputBorder(  
-                    borderRadius: BorderRadius.circular(10),  
-                    borderSide: const BorderSide(color: Color.fromRGBO(10, 62, 29, 1), width: 2.0),  
-                  ),  
-                  focusedBorder: OutlineInputBorder(  
-                    borderRadius: BorderRadius.circular(10),  
-                    borderSide: const BorderSide(color: Color.fromRGBO(10, 62, 29, 1)),  
-                  ),  
-                  enabledBorder: OutlineInputBorder(  
-                    borderRadius: BorderRadius.circular(10),  
-                    borderSide: const BorderSide(color: Color.fromRGBO(10, 62, 29, 1)),  
-                  ),  
-                            fillColor: Colors.white,  
-                  filled: true,  
+                decoration: InputDecoration(
+                  labelText: 'Title',
+                  labelStyle: const TextStyle(
+                    color: Color.fromRGBO(10, 62, 29, 1),
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(
+                      color: Color.fromRGBO(10, 62, 29, 1),
+                      width: 2.0,
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(
+                      color: Color.fromRGBO(10, 62, 29, 1),
+                    ),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(
+                      color: Color.fromRGBO(10, 62, 29, 1),
+                    ),
+                  ),
+                  fillColor: Colors.white,
+                  filled: true,
                 ),
                 style: GoogleFonts.poppins(color: Colors.black),
               ),
               const SizedBox(height: 16),
               TextField(
                 controller: subtitleController,
-                decoration: InputDecoration(  
-                  labelText: 'Subtitle',  
-                  labelStyle: const TextStyle(color: Color.fromRGBO(10, 62, 29, 1)),  
-                  border: OutlineInputBorder(  
-                    borderRadius: BorderRadius.circular(10),  
-                    borderSide: const BorderSide(color: Color.fromRGBO(10, 62, 29, 1), width: 2.0),  
-                  ),  
-                  focusedBorder: OutlineInputBorder(  
-                    borderRadius: BorderRadius.circular(10),  
-                    borderSide: const BorderSide(color: Color.fromRGBO(10, 62, 29, 1)),  
-                  ),  
-                  enabledBorder: OutlineInputBorder(  
-                    borderRadius: BorderRadius.circular(10),  
-                    borderSide: const BorderSide(color: Color.fromRGBO(10, 62, 29, 1)),  
-                  ),  
-                            fillColor: Colors.white,  
-                  filled: true,  
+                decoration: InputDecoration(
+                  labelText: 'Subtitle',
+                  labelStyle: const TextStyle(
+                    color: Color.fromRGBO(10, 62, 29, 1),
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(
+                      color: Color.fromRGBO(10, 62, 29, 1),
+                      width: 2.0,
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(
+                      color: Color.fromRGBO(10, 62, 29, 1),
+                    ),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(
+                      color: Color.fromRGBO(10, 62, 29, 1),
+                    ),
+                  ),
+                  fillColor: Colors.white,
+                  filled: true,
                 ),
                 style: GoogleFonts.poppins(color: Colors.black),
               ),
               const SizedBox(height: 16),
               TextField(
                 controller: descriptionController,
-                decoration: InputDecoration(  
-                  labelText: 'Description',  
-                  labelStyle: const TextStyle(color: Color.fromRGBO(10, 62, 29, 1)),  
-                  border: OutlineInputBorder(  
-                    borderRadius: BorderRadius.circular(10),  
-                    borderSide: const BorderSide(color: Color.fromRGBO(10, 62, 29, 1), width: 2.0),  
-                  ),  
-                  focusedBorder: OutlineInputBorder(  
-                    borderRadius: BorderRadius.circular(10),  
-                    borderSide: const BorderSide(color: Color.fromRGBO(10, 62, 29, 1)),  
-                  ),  
-                  enabledBorder: OutlineInputBorder(  
-                    borderRadius: BorderRadius.circular(10),  
-                    borderSide: const BorderSide(color: Color.fromRGBO(10, 62, 29, 1)),  
-                  ),  
-                            fillColor: Colors.white,  
-                  filled: true,  
+                decoration: InputDecoration(
+                  labelText: 'Description',
+                  labelStyle: const TextStyle(
+                    color: Color.fromRGBO(10, 62, 29, 1),
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(
+                      color: Color.fromRGBO(10, 62, 29, 1),
+                      width: 2.0,
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(
+                      color: Color.fromRGBO(10, 62, 29, 1),
+                    ),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(
+                      color: Color.fromRGBO(10, 62, 29, 1),
+                    ),
+                  ),
+                  fillColor: Colors.white,
+                  filled: true,
                 ),
                 style: GoogleFonts.poppins(color: Colors.black),
                 maxLines: 3,
@@ -533,27 +626,46 @@ class _PatientDetailsState extends State<PatientDetails> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text("Cancel", style: TextStyle(color: Color.fromRGBO(33, 158, 80, 1)),),
+              child: const Text(
+                "Cancel",
+                style: TextStyle(color: Color.fromRGBO(33, 158, 80, 1)),
+              ),
             ),
             TextButton(
               onPressed: () async {
-                final String? doctorEmail = await SessionManager.getUserSession();
+                final String? doctorEmail =
+                    await SessionManager.getUserSession();
                 final String patientEmail = patientData['email'] ?? '';
                 final String title = titleController.text.trim();
                 final String subtitle = subtitleController.text.trim();
                 final String description = descriptionController.text.trim();
                 if (title != '' && subtitle != '' && description != '') {
                   if (record != null) {
-                    saveMedicalRecord(doctorEmail, patientEmail, title, subtitle, description, recordId: record['id']);
+                    saveMedicalRecord(
+                      doctorEmail,
+                      patientEmail,
+                      title,
+                      subtitle,
+                      description,
+                      recordId: record['id'],
+                    );
                   } else {
-                    saveMedicalRecord(doctorEmail, patientEmail, title, subtitle, description);
+                    saveMedicalRecord(
+                      doctorEmail,
+                      patientEmail,
+                      title,
+                      subtitle,
+                      description,
+                    );
                   }
-                }
-                else {
+                } else {
                   _showError('Please input correct information!');
                 }
               },
-              child: const Text("Save", style: TextStyle(color: Color.fromRGBO(33, 158, 80, 1)),),
+              child: const Text(
+                "Save",
+                style: TextStyle(color: Color.fromRGBO(33, 158, 80, 1)),
+              ),
             ),
           ],
         );
@@ -564,26 +676,20 @@ class _PatientDetailsState extends State<PatientDetails> {
   Widget _buildInfoItem(String label, String value) {
     return Column(
       children: [
-        Text(
-          label,
-          style: const TextStyle(
-            color: Colors.grey,
-            fontSize: 14,
-          ),
-        ),
+        Text(label, style: const TextStyle(color: Colors.grey, fontSize: 14)),
         const SizedBox(height: 4),
         Text(
           value,
-          style: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.bold,
-          ),
+          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
         ),
       ],
     );
   }
 
-  Widget _buildMedicalHistorySection(String title, List<Map<String, dynamic>> items) {
+  Widget _buildMedicalHistorySection(
+    String title,
+    List<Map<String, dynamic>> items,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -625,15 +731,12 @@ class _PatientDetailsState extends State<PatientDetails> {
                             color: Color.fromRGBO(10, 62, 29, 1),
                           ),
                         ),
-                      ]
+                      ],
                     ),
                     const SizedBox(height: 4),
                     Text(
                       item['subtitle'] ?? 'N/A',
-                      style: const TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey,
-                      ),
+                      style: const TextStyle(fontSize: 14, color: Colors.grey),
                     ),
                     const SizedBox(height: 8),
                     Text(
@@ -655,11 +758,16 @@ class _PatientDetailsState extends State<PatientDetails> {
   }
 
   Future<String> getDoctornameByEmail(String doctorEmail) async {
-    Map<String, dynamic>? userData = await DBHelper().getDoctorByEmail(doctorEmail);
+    Map<String, dynamic>? userData = await DBHelper().getDoctorByEmail(
+      doctorEmail,
+    );
     return userData?['fullName'] ?? 'Unknown Doctor';
   }
 
-  Widget _buildMedicalRecordSection(String title, List<Map<String, dynamic>> items) {
+  Widget _buildMedicalRecordSection(
+    String title,
+    List<Map<String, dynamic>> items,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -677,12 +785,16 @@ class _PatientDetailsState extends State<PatientDetails> {
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const Center(
-                    child: CircularProgressIndicator(
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white), // Set loading indicator color to white
-                    ),
-                  ); // Show loading indicator while waiting
+                child: CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    Colors.white,
+                  ), // Set loading indicator color to white
+                ),
+              ); // Show loading indicator while waiting
             } else if (snapshot.hasError || !snapshot.hasData) {
-              return Text('Error: ${snapshot.error ?? "No user session available"}');
+              return Text(
+                'Error: ${snapshot.error ?? "No user session available"}',
+              );
             } else {
               final sessionEmail = snapshot.data;
               return ListView.builder(
@@ -710,10 +822,13 @@ class _PatientDetailsState extends State<PatientDetails> {
                       subtitle: FutureBuilder<String>(
                         future: getDoctornameByEmail(item['doctorEmail']),
                         builder: (context, snapshot) {
-                          if (snapshot.connectionState == ConnectionState.waiting) {
+                          if (snapshot.connectionState ==
+                              ConnectionState.waiting) {
                             return const Center(
                               child: CircularProgressIndicator(
-                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white), // Set loading indicator color to white
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  Colors.white,
+                                ), // Set loading indicator color to white
                               ),
                             );
                           } else if (snapshot.hasError) {
@@ -731,25 +846,38 @@ class _PatientDetailsState extends State<PatientDetails> {
                           }
                         },
                       ),
-                      trailing: (sessionEmail == item['doctorEmail'])
-                          ? Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                IconButton(
-                                  icon: const Icon(Icons.edit, color: Colors.grey),
-                                  onPressed: () {
-                                    _showAddMedicalRecordsModal(context, record: item);
-                                  },
-                                ),
-                                IconButton(
-                                  icon: const Icon(Icons.delete, color: Colors.red),
-                                  onPressed: () {
-                                    _deleteRecord(item['id'], patientData['email'] ?? '');
-                                  },
-                                ),
-                              ],
-                            )
-                          : null,
+                      trailing:
+                          (sessionEmail == item['doctorEmail'])
+                              ? Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  IconButton(
+                                    icon: const Icon(
+                                      Icons.edit,
+                                      color: Colors.grey,
+                                    ),
+                                    onPressed: () {
+                                      _showAddMedicalRecordsModal(
+                                        context,
+                                        record: item,
+                                      );
+                                    },
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(
+                                      Icons.delete,
+                                      color: Colors.red,
+                                    ),
+                                    onPressed: () {
+                                      _deleteRecord(
+                                        item['id'],
+                                        patientData['email'] ?? '',
+                                      );
+                                    },
+                                  ),
+                                ],
+                              )
+                              : null,
                     ),
                   );
                 },
