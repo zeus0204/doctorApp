@@ -281,9 +281,10 @@ class _SetAvailableTimeState extends State<SetAvailableTime> {
           ),
         ),
       ),
+      backgroundColor: Colors.white,
       body:
           _isLoading
-              ? Center(
+              ? const Center(
                 child: CircularProgressIndicator(
                   color: Color.fromRGBO(33, 158, 80, 1),
                 ),

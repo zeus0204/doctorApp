@@ -1,0 +1,2 @@
+C:/Users/Admin/Videos/healthcare/doctorApp/android/app/.cxx/RelWithDebInfo/3675i5t3/armeabi-v7a/CMakeFiles/edit_cache.dir
+C:/Users/Admin/Videos/healthcare/doctorApp/android/app/.cxx/RelWithDebInfo/3675i5t3/armeabi-v7a/CMakeFiles/rebuild_cache.dir

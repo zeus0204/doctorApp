@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:doctor_app/data/session.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:doctor_app/data/db_helper.dart';
+import 'package:intl/intl.dart';
 
 class AddAppointment extends StatefulWidget {
   final String? id;
@@ -25,6 +26,9 @@ class _AddAppointmentState extends State<AddAppointment> {
   Set<String> _bookedTimeSlots = {};
   bool _allSlotsBooked = false;
 
+  Map<String, List<String>> _doctorAvailability = {};
+  List<String> _availableTimesForSelectedDay = [];
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -42,7 +46,6 @@ class _AddAppointmentState extends State<AddAppointment> {
     });
 
     try {
-      // Load patients if not provided
       if (widget.patients == null) {
         final dbHelper = DBHelper();
         _patients = await dbHelper.getAllpatients();
@@ -50,7 +53,8 @@ class _AddAppointmentState extends State<AddAppointment> {
         _patients = widget.patients!;
       }
 
-      // Load appointment data if editing
+      await _loadDoctorAvailability();
+
       if (widget.id != null) {
         final appointment =
             await FirebaseFirestore.instance
@@ -67,8 +71,12 @@ class _AddAppointmentState extends State<AddAppointment> {
             _selectedPatientEmail = data['userEmail'];
             _selectedHospitalName = data['hospitalName'];
             _selectedTime = data['time'];
+
+            _updateAvailableTimesForDay();
           });
         }
+      } else {
+        _updateAvailableTimesForDay();
       }
     } catch (e) {
       if (!mounted) return;
@@ -87,14 +95,41 @@ class _AddAppointmentState extends State<AddAppointment> {
     }
   }
 
-  String _getTimeForIndex(int index) {
-    final hour = 6 + index ~/ 2;
-    final minute = (index % 2) * 30;
-    var period = 'AM';
-    if (hour >= 12) {
-      period = 'PM';
+  Future<void> _loadDoctorAvailability() async {
+    try {
+      String? doctorEmail = await SessionManager.getUserSession();
+      if (doctorEmail == null) return;
+
+      final querySnapshot =
+          await FirebaseFirestore.instance
+              .collection('doctors')
+              .where('email', isEqualTo: doctorEmail)
+              .get();
+
+      if (querySnapshot.docs.isNotEmpty) {
+        final doctorDoc = querySnapshot.docs.first.data();
+
+        if (doctorDoc.containsKey('availability')) {
+          setState(() {
+            _doctorAvailability = Map<String, List<String>>.from(
+              doctorDoc['availability'].map(
+                (key, value) => MapEntry(key, List<String>.from(value)),
+              ),
+            );
+          });
+        }
+      }
+    } catch (e) {
+      print('Error loading doctor availability: $e');
     }
-    return '${hour > 12 ? hour - 12 : hour}:${minute == 0 ? '00' : '30'} $period';
+  }
+
+  void _updateAvailableTimesForDay() {
+    String dayAbbr = DateFormat('EEE').format(_selectedDate);
+
+    setState(() {
+      _availableTimesForSelectedDay = _doctorAvailability[dayAbbr] ?? [];
+    });
   }
 
   Future<void> _showHospitalSelectionModal() async {
@@ -222,7 +257,6 @@ class _AddAppointmentState extends State<AddAppointment> {
       final querySnapshot =
           await FirebaseFirestore.instance
               .collection('appointments')
-              .where('userEmail', isEqualTo: _selectedPatientEmail)
               .where(
                 'day',
                 isGreaterThanOrEqualTo: startOfDay.toIso8601String(),
@@ -233,11 +267,15 @@ class _AddAppointmentState extends State<AddAppointment> {
       if (!mounted) return;
 
       setState(() {
-        for (var doc in querySnapshot.docs) {
-          _bookedTimeSlots.add(doc['time']);
-        }
-        // Check if all slots are booked (24 time slots in total)
-        _allSlotsBooked = _bookedTimeSlots.length >= 24;
+        _bookedTimeSlots =
+            querySnapshot.docs
+                .map((doc) => doc['time'] as String)
+                .where((time) => _availableTimesForSelectedDay.contains(time))
+                .toSet();
+
+        _allSlotsBooked =
+            _bookedTimeSlots.length == _availableTimesForSelectedDay.length;
+
         _isLoading = false;
       });
     } catch (e) {
@@ -309,9 +347,11 @@ class _AddAppointmentState extends State<AddAppointment> {
                         onDaySelected: (selectedDay, focusedDay) {
                           setState(() {
                             _selectedDate = selectedDay;
-                            _selectedTime =
-                                null; // Reset selected time when date changes
+                            _selectedTime = null;
                           });
+
+                          _updateAvailableTimesForDay();
+
                           if (_selectedPatientEmail != null) {
                             _checkBookedAppointments();
                           }
@@ -354,14 +394,23 @@ class _AddAppointmentState extends State<AddAppointment> {
                     const SizedBox(height: 10),
                     SizedBox(
                       height: 100,
-                      child: ListView.builder(
-                        scrollDirection: Axis.horizontal,
-                        itemCount: 24,
-                        itemBuilder: (context, index) {
-                          final time = _getTimeForIndex(index);
-                          return _buildTimeButton(time);
-                        },
-                      ),
+                      child:
+                          _availableTimesForSelectedDay.isEmpty
+                              ? const Center(
+                                child: Text(
+                                  'No available times for this day',
+                                  style: TextStyle(color: Colors.grey),
+                                ),
+                              )
+                              : ListView.builder(
+                                scrollDirection: Axis.horizontal,
+                                itemCount: _availableTimesForSelectedDay.length,
+                                itemBuilder: (context, index) {
+                                  final time =
+                                      _availableTimesForSelectedDay[index];
+                                  return _buildTimeButton(time);
+                                },
+                              ),
                     ),
                     const SizedBox(height: 20),
                     const Align(
@@ -409,8 +458,7 @@ class _AddAppointmentState extends State<AddAppointment> {
                             onChanged: (String? newValue) {
                               setState(() {
                                 _selectedPatientEmail = newValue;
-                                _selectedTime =
-                                    null; // Reset selected time when patient changes
+                                _selectedTime = null; //
                                 if (_selectedPatientEmail != null) {
                                   _showHospitalSelectionModal();
                                   _checkBookedAppointments();
@@ -553,7 +601,7 @@ class _AddAppointmentState extends State<AddAppointment> {
         'status': 'scheduled',
         'updatedAt': FieldValue.serverTimestamp(),
       };
-      Navigator.pop(context); // Close loading dialog
+      Navigator.pop(context);
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -580,7 +628,7 @@ class _AddAppointmentState extends State<AddAppointment> {
       Navigator.pop(context, true);
     } catch (e) {
       if (Navigator.canPop(context)) {
-        Navigator.pop(context); // Ensure loading dialog is closed
+        Navigator.pop(context);
       }
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -592,7 +640,6 @@ class _AddAppointmentState extends State<AddAppointment> {
         ),
       );
 
-      // Navigate back to the calendar page with a `false` result if needed
       Navigator.pop(context, false);
     }
   }
